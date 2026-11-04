@@ -95,3 +95,48 @@ Sin estas prácticas, TBD termina degradándose a "feature branching con otro no
 4. **Revisión de código ágil** (PR pequeños que se revisan en minutos, no en días).
 5. **Cultura de commits pequeños.**
 
+## Comparación: GitFlow vs Trunk Based Development
+
+| Aspecto                      | GitFlow                                                           | Trunk Based Development                                    |
+|------------------------------|-------------------------------------------------------------------|------------------------------------------------------------|
+| Ramas de vida infinita       | `main` y `develop`                                                | Solo `main`                                                |
+| Vida de las ramas de trabajo | Días o semanas (`feature`)                                        | Horas o 1-2 días                                           |
+| Rama de integración          | `develop`                                                         | `main` directamente                                        |
+| Preparar un lanzamiento      | Rama `release-*` con ajustes                                      | `main` ya está lista (o `release/*` corta con cherry-pick) |
+| Hotfix                       | Rama `hotfix-*` → `main` **y** `develop`                          | Fix en `main` (+ cherry-pick a la release si aplica)       |
+| Código incompleto            | Se queda en la rama `feature`                                     | Se integra apagado con feature flag                        |
+| Riesgo de conflictos         | Alto (las ramas divergen mucho)                                   | Bajo (cambios pequeños y frecuentes)                       |
+| Frecuencia de despliegue     | Por versiones planificadas                                        | Continua / varias veces al día                             |
+| Exigencia de CI/CD y tests   | Moderada                                                          | **Alta (imprescindible)**                                  |
+| Encaja mejor con             | Software con versiones calendarizadas (móvil, embebido, regulado) | Aplicaciones web/backend con despliegue continuo           |
+
+### Cuándo conviene y cuándo no
+
+- **Conviene:** servicios backend (Spring Boot, microservicios), equipos con CI/CD y buenas pruebas, despliegue
+  frecuente.
+- **No tanto:** software que se publica por calendario con revisiones largas (app stores) o que debe mantener varias
+  versiones en paralelo durante años. Ahí las *release branches* de larga vida tienen sentido real.
+
+## Origen y destino de las ramificaciones
+
+| Rama                   | Origen                                                                                               | Destino                                                      | Convención          | Ejemplo                 |
+|------------------------|------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|---------------------|-------------------------|
+| **main** (trunk)       |                                                                                                      |                                                              |                     |                         |
+| **feature / fix**      | main                                                                                                 | main (PR + *Squash and merge*)                               | `feature/` · `fix/` | `feature/validar-email` |
+| **release** (opcional) | main                                                                                                 | **no se fusiona de vuelta** (se borra al salir la siguiente) | `release/`          | `release/1.0`           |
+| **hotfix**             | **No existe como rama aparte**: el arreglo nace en `main` y se lleva con `cherry-pick` a `release/*` |                                                              |                     |                         |
+
+## Práctica: Tabla de cambios
+
+| ID        | DESCRIPCIÓN CORTA                                               | RAMA DE TRABAJO                           | RAMA ORIGEN | RAMA DESTINO         | QUIÉN TRABAJA                               | QUIÉN REVISA    |
+|-----------|-----------------------------------------------------------------|-------------------------------------------|-------------|----------------------|---------------------------------------------|-----------------|
+| Cambio #1 | Endpoint `/api/saludo` (commit directo)                         | *(ninguna)*                               | main        | main                 | magadiflo                                   | —               |
+| Cambio #2 | Conflicto: ambos editan `application.properties` (push directo) | *(ninguna)*                               | main        | main                 | magadiflo y dev-partner-lab                 | —               |
+| Cambio #3 | Validar email al registrar usuario                              | `feature/validar-email`                   | main        | main                 | dev-partner-lab                             | magadiflo       |
+| Cambio #4 | Nuevo checkout **incompleto** detrás de un feature flag         | `feature/nuevo-checkout`                  | main        | main                 | magadiflo                                   | dev-partner-lab |
+| Cambio #5 | Dos PR en paralelo: el segundo entra en conflicto               | `feature/configurar-reintentos`           | main        | main                 | dev-partner-lab                             | magadiflo       |
+| Cambio #6 | Preparar la versión 1.0                                         | `release/1.0`                             | main        | *(no vuelve a main)* | magadiflo                                   | —               |
+| Cambio #7 | Bug en producción (v1.0.0) → v1.0.1                             | `fix/email-con-signo-mas` y `cherry-pick` | main        | main y `release/1.0` | dev-partner-lab (fix) y magadiflo (release) | magadiflo       |
+
+> Entre los Cambios `#2` y `#3` se **activa la protección de `main`**. Por eso los dos primeros se hacen con commit
+> directo y el resto con Pull Request.
