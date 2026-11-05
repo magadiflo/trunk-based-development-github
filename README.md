@@ -10,15 +10,15 @@
 > **Cómo leer esta documentación**
 >
 > - La práctica se hace en **GitHub real** con dos cuentas: **`magadiflo`** (dueño del repositorio, el desarrollador
-    principal) y **`dev-partner-lab`** (el compañero de equipo). El repositorio se llama
-    `trunk-based-development-practice`.
+>   principal) y **`dev-partner-lab`** (el compañero de equipo). El repositorio se llama
+>   `trunk-based-development-practice`.
 > - Los bloques `bash` muestran **quién** ejecuta cada comando con una etiqueta: **[magadiflo]** o
-    **[dev-partner-lab]**.
+>   **[dev-partner-lab]**.
 > - Las salidas de terminal (`text`) provienen de **una simulación local** con los mismos usuarios, repositorio y
-    comandos. Los **hashes** (`2b871c4`, etc.) y las fechas serán distintos en tu máquina.
+>   comandos. Los **hashes** (`2b871c4`, etc.) y las fechas serán distintos en tu máquina.
 > - Lo que es propio de GitHub (pantallas, rulesets, Actions, mensajes de rechazo del remoto) está escrito a partir de
-    la documentación y **no fue ejecutado**. Cada vez que ocurre, se indica con **(GitHub, no verificado)**. Si algo no
-    coincide con lo que ves, la interfaz de GitHub habrá cambiado: ajústalo y anótalo.
+>   la documentación y **no fue ejecutado**. Cada vez que ocurre, se indica con **(GitHub, no verificado)**. Si algo
+>   no coincide con lo que ves, la interfaz de GitHub habrá cambiado: ajústalo y anótalo.
 > - Donde dice **📷 Captura sugerida**, conviene guardar una imagen en `./assets/` (como hiciste en GitFlow).
 
 ---
@@ -140,3 +140,31 @@ Sin estas prácticas, TBD termina degradándose a "feature branching con otro no
 
 > Entre los Cambios `#2` y `#3` se **activa la protección de `main`**. Por eso los dos primeros se hacen con commit
 > directo y el resto con Pull Request.
+
+## Inicio: preparación del entorno
+
+### 1. Crear el repositorio en GitHub
+
+Con la cuenta **magadiflo**:
+
+> **GitHub > New repository**
+> - **Repository name:** `trunk-based-development-practice`
+> - **Visibility:** **Public** (los *rulesets* están disponibles en repositorios públicos con el plan gratuito)
+> - **No** marcar *Add a README*, *.gitignore* ni *license* (el repositorio debe quedar vacío)
+
+![01.png](assets/01.png)
+
+### 2. Invitar a `dev-partner-lab` como colaborador
+
+Con **magadiflo**:
+
+> **Repositorio > Settings > Collaborators > Add people** → buscar `dev-partner-lab` → rol **Write**
+
+Con **dev-partner-lab**: aceptar la invitación desde el correo, o entrando a:
+
+```text
+https://github.com/magadiflo/trunk-based-development-practice/invitations
+```
+
+![02.png](assets/02.png)
+
