@@ -140,3 +140,31 @@ Sin estas prácticas, TBD termina degradándose a "feature branching con otro no
 
 > Entre los Cambios `#2` y `#3` se **activa la protección de `main`**. Por eso los dos primeros se hacen con commit
 > directo y el resto con Pull Request.
+
+## Inicio: preparación del entorno
+
+### 1. Crear el repositorio en GitHub
+
+Con la cuenta **magadiflo**:
+
+> **GitHub > New repository**
+> - **Repository name:** `trunk-based-development-practice`
+> - **Visibility:** **Public** (los *rulesets* están disponibles en repositorios públicos con el plan gratuito)
+> - **No** marcar *Add a README*, *.gitignore* ni *license* (el repositorio debe quedar vacío)
+
+![01.png](assets/01.png)
+
+### 2. Invitar a `dev-partner-lab` como colaborador
+
+Con **magadiflo**:
+
+> **Repositorio > Settings > Collaborators > Add people** → buscar `dev-partner-lab` → rol **Write**
+
+Con **dev-partner-lab**: aceptar la invitación desde el correo, o entrando a:
+
+```text
+https://github.com/magadiflo/trunk-based-development-practice/invitations
+```
+
+![02.png](assets/02.png)
+
