@@ -1,35 +1,42 @@
 # Trunk Based Development y GitHub
 
-- [Trunk Based Development (sitio de referencia)](https://trunkbaseddevelopment.com/) y su
-  sección [You're doing it wrong](https://trunkbaseddevelopment.com/youre-doing-it-wrong)
+- [Trunk Based Development (sitio de referencia)](https://trunkbaseddevelopment.com/)
+    - Y su sección [You're doing it wrong](https://trunkbaseddevelopment.com/youre-doing-it-wrong)
 - [How to Implement Trunk-Based Development: A Practical Guide (Unleash)](https://getunleash.io/trunk-based-development)
 - [What Is Trunk-Based Development? A Complete Guide (Flagsmith)](https://flagsmith.com/blog/trunk-based-development)
 - [Trunk-Based Development (Mergify)](https://mergify.com/learn/trunk-based-development)
 - [Available rules for rulesets (GitHub Docs)](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)
+- [Git Credential Manager: varios usuarios (multiple-users.md)](https://github.com/git-ecosystem/git-credential-manager/blob/release/docs/multiple-users.md)
+- [Managing your personal access tokens (GitHub Docs)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
 > **Cómo leer esta documentación**
 >
 > - La práctica se hace en **GitHub real** con dos cuentas: **`magadiflo`** (dueño del repositorio, el desarrollador
 >   principal) y **`dev-partner-lab`** (el compañero de equipo). El repositorio se llama
->   `trunk-based-development-practice`.
-> - Los bloques `bash` muestran **quién** ejecuta cada comando con una etiqueta: **[magadiflo]** o
->   **[dev-partner-lab]**.
+>   **`trunk-based-development-practice`**.
+> - Los bloques `bash` muestran **quién** ejecuta cada comando con una etiqueta: `[magadiflo]` o
+>   `[dev-partner-lab]`.
+> - **Cada comando se explica al pie del bloque donde aparece por primera vez** (primero qué hace el comando completo y
+>   luego cada una de sus partes). Si más adelante reaparece, ya no se vuelve a explicar; solo se explica lo nuevo
+>   (por ejemplo, una opción que antes no se había usado). Los bloques de explicación empiezan con **📖 Comandos de
+>   este bloque**.
 > - Las salidas de terminal (`text`) provienen de **una simulación local** con los mismos usuarios, repositorio y
->   comandos. Los **hashes** (`2b871c4`, etc.) y las fechas serán distintos en tu máquina.
-> - Lo que es propio de GitHub (pantallas, rulesets, Actions, mensajes de rechazo del remoto) está escrito a partir de
->   la documentación y **no fue ejecutado**. Cada vez que ocurre, se indica con **(GitHub, no verificado)**. Si algo
->   no coincide con lo que ves, la interfaz de GitHub habrá cambiado: ajústalo y anótalo.
+>   comandos. Los **hashes** (`93fd7e3`, etc.) y las fechas serán distintos en tu máquina. Como en la simulación el
+>   remoto es una carpeta local y no GitHub, en tu terminal verás además líneas `remote:` que agrega GitHub (por
+>   ejemplo, un enlace para crear el PR) y la URL `https://github.com/...` en vez de una ruta local.
+> - Lo que es propio de GitHub (pantallas, rulesets, Actions, mensajes de rechazo del remoto) y de Git Credential
+>   Manager está escrito a partir de la documentación y **no fue ejecutado**. Se indica con **(GitHub, no
+>   verificado)**
+>   o **(GCM, no verificado)**. Si algo no coincide con lo que ves, la interfaz habrá cambiado: ajústalo y anótalo.
 > - Donde dice **📷 Captura sugerida**, conviene guardar una imagen en `./assets/` (como hiciste en GitFlow).
-
----
 
 ## ¿Qué es Trunk Based Development?
 
-`Trunk Based Development (TBD)` es una estrategia de branching donde **todos los desarrolladores integran sus cambios en
+Trunk Based Development (TBD) es una estrategia de branching donde **todos los desarrolladores integran sus cambios en
 una única rama compartida, el `trunk` (el "tronco"), que en Git es `main`**, con cambios **pequeños y frecuentes**, en
 lugar de trabajar semanas en ramas largas.
 
-La idea central no es *"no usar ramas"*, sino **que las ramas vivan muy poco** (horas, a lo sumo uno o dos días) y que
+La idea central no es "no usar ramas", sino **que las ramas vivan muy poco** (horas, a lo sumo uno o dos días) y que
 `main` esté **siempre en un estado desplegable**.
 
 > En GitFlow la pregunta es *"¿en qué rama va esto?"*. En TBD la pregunta es *"¿cómo lo hago lo bastante pequeño para
@@ -145,7 +152,7 @@ Sin estas prácticas, TBD termina degradándose a "feature branching con otro no
 
 ### 1. Crear el repositorio en GitHub
 
-Con la cuenta **magadiflo**:
+Con la cuenta `magadiflo`:
 
 > **GitHub > New repository**
 > - **Repository name:** `trunk-based-development-practice`
@@ -156,11 +163,11 @@ Con la cuenta **magadiflo**:
 
 ### 2. Invitar a `dev-partner-lab` como colaborador
 
-Con **magadiflo**:
+Con `magadiflo`:
 
 > **Repositorio > Settings > Collaborators > Add people** → buscar `dev-partner-lab` → rol **Write**
 
-Con **dev-partner-lab**: aceptar la invitación desde el correo, o entrando a:
+Con `dev-partner-lab`: aceptar la invitación desde el correo, o entrando a:
 
 ```text
 https://github.com/magadiflo/trunk-based-development-practice/invitations
