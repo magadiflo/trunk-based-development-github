@@ -175,3 +175,140 @@ https://github.com/magadiflo/trunk-based-development-practice/invitations
 
 ![02.png](assets/02.png)
 
+### 3. Dos cuentas en la misma PC: HTTPS y configuración local de Git
+
+Si utilizas HTTPS, puedes trabajar con dos cuentas de GitHub desde la misma PC sin necesidad de generar y administrar
+una llave SSH por cada cuenta.
+
+La idea es mantener la configuración global de Git para tu cuenta principal (`magadiflo`) y establecer una configuración
+local para el repositorio donde trabajarás como colaborador (`dev-partner-lab`). De esta manera, cada clon tendrá su
+propia identidad de Git, sin afectar los demás repositorios de tu equipo.
+
+#### Configuración global (`magadiflo`)
+
+Si ya tienes configurada tu identidad principal, no necesitas modificar nada. Puedes comprobarla con:
+
+```bash
+C:\cmder
+$ git config --global user.name
+Martín Díaz
+
+C:\cmder
+$ git config --global user.email
+tu-correo@ejemplo.com
+```
+
+> **📖 Comandos de este bloque**
+>
+> **`git config --global user.name`** y **`git config --global user.email`**: muestran la identidad que Git usa por
+> defecto en **todos** tus repositorios.
+> - `git config`: lee o escribe la configuración de Git. Si le das **solo la clave** (como aquí), **muestra** su valor;
+>   si le das la clave **y un valor**, lo **guarda**.
+> - `--global`: indica que se trabaja con la configuración **de tu usuario del sistema** (archivo `.gitconfig` de tu
+>   carpeta personal), que vale para todos los repositorios. Los otros niveles son `--system` (toda la PC) y `--local`
+>   (un solo repositorio).
+> - `user.name` / `user.email`: las claves con el nombre y el correo que Git escribe como **autor** de cada commit.
+
+#### Configuración local (`dev-partner-lab`)
+
+Cuando clones el repositorio para trabajar como colaborador, configurarás su identidad únicamente dentro de ese
+repositorio:
+
+```bash
+$ git config --local user.name "dev-partner-lab"
+$ git config --local user.email "martin.g.diaz.flores@gmail.com"
+```
+
+> **📖 Comandos de este bloque**
+>
+> **`git config --local user.name "dev-partner-lab"`** y
+> **`git config --local user.email "martin.g.diaz.flores@gmail.com"`**: guardan la identidad de `dev-partner-lab` **solo
+> en este repositorio**.
+> - `--local`: el valor se guarda en el archivo `.git/config` del repositorio actual. Tiene **prioridad** sobre
+>   `--global`, así que dentro de este clon manda la identidad local y en los demás proyectos sigue la global. (Orden
+>   de prioridad: local → global → system.)
+> - `"dev-partner-lab"` / `"martin.g.diaz.flores@gmail.com"`: ahora sí hay **valor**, por eso el comando **escribe** en
+>   lugar de mostrar. Si el correo no pertenece a la cuenta, GitHub mostrará los commits sin el usuario asociado.
+
+> `git config --local` no modifica la configuración global ni afecta a los demás proyectos.
+
+#### ¿Cómo funciona la autenticación con HTTPS?
+
+La identidad configurada mediante `user.name` y `user.email` determina quién aparece como **autor de los commits**, pero
+**no determina qué cuenta de GitHub realiza el push**. De hecho, la documentación de Git Credential Manager lo advierte:
+`user.name` y `user.email` no afectan a GCM.
+
+Para autenticar las operaciones HTTPS utilizaremos **Git Credential Manager (GCM)**, que gestiona las credenciales de
+GitHub:
+
+- `magadiflo` seguirá utilizando su autenticación habitual.
+- `dev-partner-lab` deberá autenticarse con sus propias credenciales de GitHub.
+
+**El problema:** si no se le indica nada, Git le pide credenciales a GCM **sin decirle qué usuario quiere** (para Git,
+el usuario del remoto queda vacío). Si GCM ya tiene guardada tu cuenta principal, **puede reutilizarla**, y entonces el
+push de `dev-partner-lab` saldría como `magadiflo` sin darte ningún error: los commits dirían `dev-partner-lab`, pero
+quien empuja sería `magadiflo`. Con dos cuentas en el mismo dominio (`github.com`) hay que indicar el usuario de forma
+explícita.
+
+#### Indicar a GCM qué cuenta usa cada clon
+
+GCM documenta dos formas de hacerlo: poner el usuario en la URL del remoto, o configurar
+`credential.https://github.com.username`. Aquí usamos la segunda, **de forma local en cada clon**, porque encaja con la
+idea de "configurar el repositorio local":
+
+```bash
+# en el clon de magadiflo
+$ git config --local credential.https://github.com.username "magadiflo"
+
+# en el clon de dev-partner-lab
+$ git config --local credential.https://github.com.username "dev-partner-lab"
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git config --local credential.https://github.com.username "..."`: le dice a Git qué **usuario de GitHub** debe
+> pedirle a GCM al hablar con `https://github.com` desde este repositorio.
+> - `credential.https://github.com.username`: es una clave con el formato `credential.<URL>.username`. El `<URL>` (aquí
+>   `https://github.com`) limita el efecto a ese sitio: para otros servidores (GitLab, etc.) no se envía ningún
+>   usuario.
+> - `"dev-partner-lab"` / `"magadiflo"`: el usuario que GCM debe buscar o crear. Cada usuario tiene sus propias
+>   credenciales guardadas, así que **ya no se mezclan**.
+
+> Se configura la cuenta de **magadiflo** también, aunque sea la principal: cuando GCM tenga **dos** cuentas para
+> `github.com`, un clon sin usuario definido es ambiguo.
+
+> **Alternativa equivalente:** poner el usuario en la URL,
+> `https://dev-partner-lab@github.com/magadiflo/trunk-based-development-practice.git`. Funciona igual, pero deja el
+> usuario visible dentro de la URL del remoto.
+
+#### Primer push de `dev-partner-lab`: iniciar sesión con la cuenta correcta
+
+La primera vez que `dev-partner-lab` empuje, GCM no encontrará credenciales para ese usuario y abrirá su ventana de
+inicio de sesión de GitHub.
+
+Precauciones:
+
+- Si tu navegador predeterminado tiene abierta la sesión de **magadiflo**, autoriza con **dev-partner-lab**: abre el
+  enlace en una ventana de incógnito o elige la opción de **código de dispositivo** (*device code*), que puedes
+  completar en un navegador donde esté la otra cuenta.
+- Si prefieres un token, debe ser un **token clásico (*classic*) con el permiso `repo`**. Según GitHub Docs, los tokens
+  de grano fino (*fine-grained*) todavía no cubren el caso de contribuir a repositorios donde eres colaborador de otra
+  cuenta personal.
+
+Para comprobar qué cuentas guardó GCM:
+
+```bash
+$ git credential-manager github list
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git credential-manager github list`: lista las cuentas de GitHub que Git Credential Manager tiene guardadas.
+> - `git credential-manager`: invoca a GCM desde Git.
+> - `github`: el subcomando para el proveedor GitHub (también existen `login` y `logout` para iniciar o cerrar sesión de
+>   una cuenta; mira `git credential-manager github --help` para sus opciones).
+> - `list`: muestra las cuentas guardadas. Tras el primer push de `dev-partner-lab` deberían aparecer **las dos**.
+
+No es necesario configurar una llave SSH por cuenta ni modificar la configuración global de Git para establecer las
+identidades locales.
+
