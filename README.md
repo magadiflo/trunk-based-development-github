@@ -327,8 +327,8 @@ M:\practice\
 
 #### `[magadiflo]`
 
-Ubicados en el directorio `M:\practice` mediante el CMD, realizamos los siguientes pasos para preparar nuestro
-repositorio local y clonar el repositorio utilizando HTTPS:
+Ubicados en el directorio `M:\practice` mediante el CMD (usaré para este usuario el `Cmder`), realizamos los siguientes
+pasos para preparar nuestro repositorio local y clonar el repositorio utilizando HTTPS:
 
 ```bash
 M:\practice
@@ -382,3 +382,77 @@ file:C:/Users/magadiflo/.gitconfig      magadiflo@gmail.com
 >   (local) o del `.gitconfig` global. (Sin esta opción solo verías el valor.)
 > - `user.name` / `user.email`: las claves que se consultan.
 
+#### `[dev-partner-lab]`
+
+Clonamos otra copia del mismo repositorio (el repositorio sigue perteneciendo a `magadiflo`). Así que nos posicionamos
+en el directorio `M:\practice` y esta vez usaremos una línea de comandos distinta, para este usuario usaremos
+`GitBash`.
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice
+$ mkdir dev-partner-lab && cd dev-partner-lab
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab
+$ git clone https://github.com/magadiflo/trunk-based-development-practice.git
+Cloning into 'trunk-based-development-practice'...
+warning: You appear to have cloned an empty repository.
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab
+$ cd trunk-based-development-practice/ 
+````
+
+Ahora configuramos la identidad local del colaborador y la cuenta que usará GCM:
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git config --local user.name "dev-partner-lab"
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git config --local user.email "martin.g.diaz.flores@gmail.com"
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git config --local credential.https://github.com.username "dev-partner-lab"
+```
+
+Verificamos que se hayan aplicado correctamente los datos, y **de dónde** vienen:
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git config --show-origin user.name
+file:.git/config        dev-partner-lab
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git config --show-origin user.email
+file:.git/config        martin.g.diaz.flores@gmail.com
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git config --local --get-regexp "^(user|credential)\."
+user.name dev-partner-lab
+user.email martin.g.diaz.flores@gmail.com
+credential.https://github.com.username dev-partner-lab
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git remote -v
+origin  https://github.com/magadiflo/trunk-based-development-practice.git (fetch)
+origin  https://github.com/magadiflo/trunk-based-development-practice.git (push)
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git config --local --get-regexp "^(user|credential)\."`: lista las claves de la configuración **local** cuyo
+> nombre empieza por `user.` o `credential.`.
+> - `--get-regexp`: busca claves cuyo nombre coincide con una **expresión regular** y muestra `clave valor`.
+> - `"^(user|credential)\."`: la expresión regular: `^` = al inicio del nombre; `(user|credential)` = una de las dos
+>   palabras; `\.` = un punto literal.
+>
+> `git remote -v`: muestra los repositorios remotos configurados y sus URL.
+> - `git remote`: administra los remotos. Sin más argumentos, solo lista sus nombres (`origin` es el que crea
+>   `git clone`).
+> - `-v`: *verbose*, agrega la URL de cada remoto, una para bajar cambios (*fetch*) y otra para subirlos (*push*).
+
+> **Importante:** el repositorio sigue perteneciendo a `magadiflo`. Sin embargo, `dev-partner-lab` podrá contribuir
+> porque previamente habrá aceptado la invitación como colaborador.
+
+> **Sobre la autenticación:** cuando `dev-partner-lab` realice su primer push, GCM deberá utilizar las credenciales de
+> esa cuenta
+> (ver [Primer push de dev-partner-lab](#primer-push-de-dev-partner-lab-iniciar-sesión-con-la-cuenta-correcta)).
