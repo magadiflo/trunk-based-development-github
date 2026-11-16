@@ -312,3 +312,73 @@ $ git credential-manager github list
 No es necesario configurar una llave SSH por cuenta ni modificar la configuración global de Git para establecer las
 identidades locales.
 
+### 4. Clonar dos copias del repositorio
+
+Cada "desarrollador" tendrá su propia carpeta y su propio clon del repositorio. De esta manera, podremos simular el
+trabajo de dos integrantes de un equipo desde una misma PC.
+
+```text
+M:\practice\
+├── magadiflo\
+│   └── trunk-based-development-practice\      ← clon de magadiflo
+└── dev-partner-lab\
+    └── trunk-based-development-practice\      ← clon de dev-partner-lab
+```
+
+#### `[magadiflo]`
+
+Ubicados en el directorio `M:\practice` mediante el CMD, realizamos los siguientes pasos para preparar nuestro
+repositorio local y clonar el repositorio utilizando HTTPS:
+
+```bash
+M:\practice
+$ mkdir magadiflo && cd magadiflo
+
+M:\practice\magadiflo
+$ git clone https://github.com/magadiflo/trunk-based-development-practice.git
+Cloning into 'trunk-based-development-practice'...
+warning: You appear to have cloned an empty repository.
+
+M:\practice\magadiflo
+$ cd trunk-based-development-practice\
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git config --local credential.https://github.com.username "magadiflo"
+```
+
+> **📖 Comandos de este bloque**
+>
+> `mkdir magadiflo && cd magadiflo`: crea una carpeta y entra en ella.
+> - `mkdir magadiflo`: *make directory*, crea la carpeta `magadiflo`.
+> - `&&`: ejecuta el comando siguiente **solo si el anterior terminó bien**.
+> - `cd magadiflo`: *change directory*, cambia la carpeta actual a `magadiflo`.
+>
+> `git clone https://github.com/magadiflo/trunk-based-development-practice.git`: descarga una copia completa del
+> repositorio remoto.
+> - `git clone`: crea una carpeta con el nombre del repositorio, descarga todo su historial, define el remoto `origin`
+>   apuntando a esa URL y deja listo el seguimiento de `main`.
+> - `https://github.com/...git`: la URL HTTPS del repositorio (se copia del botón **Code** de GitHub).
+>
+> **`cd trunk-based-development-practice`**: entra en la carpeta recién clonada (todos los comandos Git siguientes se
+> ejecutan ahí dentro).
+
+Si la identidad global ya está configurada para `magadiflo`, no necesitamos configurar `user.name` ni `user.email`. Lo
+comprobamos mostrando **de dónde viene** cada valor:
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git config --show-origin user.name
+file:C:/Users/magadiflo/.gitconfig      Martín Díaz
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git config --show-origin user.email
+file:C:/Users/magadiflo/.gitconfig      magadiflo@gmail.com
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git config --show-origin user.name`: muestra el valor que Git usará **y el archivo donde está definido**.
+> - `--show-origin`: antepone la ruta del archivo de configuración. Así distingues si el valor viene de `.git/config`
+>   (local) o del `.gitconfig` global. (Sin esta opción solo verías el valor.)
+> - `user.name` / `user.email`: las claves que se consultan.
+
