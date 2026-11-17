@@ -524,7 +524,7 @@ on:
     branches: [ main ]
   push:
     branches: [ main ]
-  merge_group:            # solo necesario si algún día usas merge queue
+  merge_group:            # solo necesario si algún día usamos merge queue
 
 jobs:
   build:
@@ -577,14 +577,6 @@ ejecución** y en el runner Linux de GitHub la CI fallaría con `Permission deni
 ```bash
 M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
 $ git add .
-warning: in the working copy of '.gitattributes', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of '.mvn/wrapper/maven-wrapper.properties', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'mvnw.cmd', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'pom.xml', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/main/java/dev/magadiflo/tbd/TrunkBasedDevelopmentPracticeApplication.java', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/main/resources/application.yaml', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/test/java/dev/magadiflo/tbd/TrunkBasedDevelopmentPracticeApplicationTests.java', LF will be replaced by CRLF the next time Git touches it
 
 M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
 $ git update-index --chmod=+x mvnw
@@ -612,4 +604,92 @@ $ git ls-files -s mvnw
 > - `mvnw`: limita la salida a ese archivo.
 > - El `100755` de la salida significa "archivo ejecutable" (antes era `100644`, archivo normal).
 
+**Paso 4: commit inicial y push.**
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git commit -m "Initial commit"
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git push -u origin main
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git commit -m "Initial commit"`: guarda en el historial una "foto" de lo que está en el *staging area*.
+> - `git commit`: crea el commit con los cambios preparados con `git add`.
+> - `-m "Initial commit"`: el mensaje del commit, escrito directamente en el comando (sin abrir un editor).
+>
+> `git push -u origin main`: sube la rama `main` local al repositorio remoto.
+> - `git push`: envía tus commits al remoto.
+> - `origin`: el nombre del remoto (el repositorio de GitHub, creado por `git clone`).
+> - `main`: la rama que se sube.
+> - `-u` (*--set-upstream*): enlaza tu `main` local con `origin/main`, de modo que luego bastan `git push` y `git pull`
+>   sin argumentos.
+
+En **GitHub > Actions** debe aparecer la primera ejecución del workflow **CI** (job `build`). Espera a que quede en
+verde.
+
+![03.png](assets/03.png)
+
+Ahora `dev-partner-lab` recibe el proyecto. Como clonó el repositorio cuando estaba vacío, aquí hace su primer `pull`;
+**este es también su primer contacto con GitHub como colaborador**, así que es donde GCM puede pedirle iniciar sesión:
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 28, done.
+remote: Counting objects: 100% (28/28), done.
+remote: Compressing objects: 100% (16/16), done.
+remote: Total 28 (delta 0), reused 28 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (28/28), 9.82 KiB | 201.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+ * [new branch]      main       -> origin/main
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git s
+## main...origin/main
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 79389aa (HEAD -> main, origin/main, origin/HEAD) Initial commit
+````
+
+En mis configuraciones globales tengo configurado los siguientes alias:
+
+- `alias.lg=log --oneline --decorate --all --graph`
+- `alias.s=status -s -b`
+
+Por lo que los siguientes comandos son equivalentes:
+
+- `git s` == `git status -sb`
+- `git lg` == `git log --oneline --graph --all --decorate`
+
+> **📖 Comandos de este bloque**
+>
+> `git pull --rebase`: trae los cambios nuevos del remoto y los integra en tu rama, **manteniendo el historial en
+> línea recta**.
+> - `git pull`: hace dos cosas seguidas: `git fetch` (descargar lo nuevo del remoto) y luego integrarlo en tu rama
+>   actual.
+> - `--rebase`: en lugar de crear un commit de unión (*merge*), "levanta" tus commits locales y los vuelve a colocar
+>   encima de lo que bajó del remoto. Resultado: historial lineal, sin commits de merge.
+>
+> `git status -sb`: muestra el estado del repositorio en formato corto.
+> - `git status`: indica qué archivos cambiaron, cuáles están en el *staging* y en qué rama estás.
+> - `-s` (*--short*): formato compacto, una línea por archivo (por ejemplo, `UU` significa "conflicto: modificado por
+>   ambos lados").
+> - `-b` (*--branch*): agrega arriba la línea `## rama...remoto` con el seguimiento. Que aparezca
+>   `## main...origin/main` confirma que tu `main` está enlazada con la remota.
+>
+> `git log --oneline --graph --all --decorate`: dibuja el historial de commits.
+> - `git log`: lista los commits.
+> - `--oneline`: un commit por línea (hash corto + mensaje).
+> - `--graph`: dibuja el árbol de ramas con líneas ASCII.
+> - `--all`: incluye todas las ramas (locales y remotas), no solo la actual.
+> - `--decorate`: muestra los nombres junto al commit: `HEAD -> main` es dónde estás parado y `origin/main` es la copia
+>   local de la rama remota.
+
+> Observa la diferencia con GitFlow: **no se crea `develop`**. Solo existe `main`.
 
