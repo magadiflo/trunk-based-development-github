@@ -479,3 +479,93 @@ El proyecto base se genera una sola vez y lo sube `magadiflo`.
 Descomprime el `.zip` y copia **su contenido** (`pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/`, `.gitignore`, `src/`) dentro del
 clon de `magadiflo`.
 
+**Paso 2: el workflow de CI.** El archivo se crea dentro del proyecto, en la raíz del clon de `magadiflo` (la carpeta
+`trunk-based-development-practice`, junto a `pom.xml`). GitHub solo reconoce los workflows que estén exactamente en
+`.github/workflows/`. Si esas carpetas no existen, créalas:
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ mkdir .github\workflows 
+````
+
+> **📖 Comandos de este bloque**
+>
+> `mkdir .github\workflows`: crea las dos carpetas anidadas de una sola vez.
+> - `mkdir`: ya explicado.
+
+Dentro de esa carpeta crearemos el archivo `ci.yml`. El nombre es solo una convención: puede llamarse como quieras
+(`build.yml`, `pruebas.yml`, etc.), siempre que termine en `.yml` o `.yaml`. Aun así, conviene que sea semántico, es
+decir, que el nombre diga qué hace el workflow (`ci.yml` para integración continua, `deploy.yml` para despliegue),
+porque en un proyecto real habrá varios archivos en esa carpeta y así se distinguen de un vistazo.
+
+Lo que sí debes respetar es lo que hay dentro del archivo: el identificador del job (`build`) es el nombre del check
+que más adelante exigiremos en el `ruleset`. Si lo cambias, también tendrías que actualizar el ruleset.
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ type nul > .github\workflows\ci.yml
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ cd .github\workflows
+
+M:\practice\magadiflo\trunk-based-development-practice\.github\workflows (main -> origin)
+$ ls -l
+total 0
+-rw-r--r-- 1 magadiflo 197121 0 Nov 16 23:07 ci.yml
+````
+
+El archivo `ci.yml` tendrá el siguiente contenido:
+
+```yaml
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  merge_group:            # solo necesario si algún día usas merge queue
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Compilar y ejecutar pruebas
+        run: ./mvnw -B verify
+```
+
+> **📖 Comandos de este bloque**
+>
+> `./mvnw -B verify`: compila el proyecto, ejecuta las pruebas y valida el resultado, sin pedir nada por consola.
+> - `./mvnw`: el *Maven Wrapper* del proyecto; usa la versión de Maven definida en el proyecto sin tener que instalarla
+>   (`./` = "el archivo de esta carpeta").
+> - `-B`: *batch mode*, modo no interactivo con salida más limpia, pensado para servidores de CI.
+> - `verify`: fase del ciclo de vida de Maven. Ejecuta todas las anteriores (compilar, probar, empaquetar) y luego las
+>   verificaciones finales.
+
+> El job se llama `build`: ese será el nombre del *check* que luego exigiremos en el ruleset.
+
+**Versiones usadas y cómo verificarlas.** Consultadas el 16 de noviembre de 2026 en las páginas de *Releases*:
+`actions/checkout` **v7** (última publicada: v7.0.1) y `actions/setup-java` **v6** (última publicada: v6.1.0). Las
+versiones cambian con el tiempo; para comprobarlas:
+
+1. Abre [`actions/checkout/releases`](https://github.com/actions/checkout/releases) y [
+   `actions/setup-java/releases`](https://github.com/actions/setup-java/releases) y busca la etiqueta **Latest**. En la
+   web ves la versión completa (`v7.0.1`); en el workflow se escribe solo la **mayor** (`@v7`).
+2. Lee las notas de la versión por si hay cambios incompatibles marcados como **[BREAKING]**. En `checkout`, el cambio
+   de comportamiento de v7 afecta a los eventos `pull_request_target` y `workflow_run`, que este workflow **no usa**
+   (usa `pull_request` y `push`).
+3. Revisa el `README.md` de cada action: sus ejemplos muestran la versión mayor vigente.
+4. Para no hacerlo a mano, **Dependabot** puede avisarte con un PR.
+
+**Sobre Java:** `java-version: '25'` debe coincidir con la versión de tu proyecto (`<java.version>` en el `pom.xml`) y
+con la que usas en tu máquina (`java -version`). `temurin` es la distribución de Java (Eclipse Temurin); el README de
+`setup-java` v6 acepta versiones mayores como `'25'`. `cache: maven` guarda las dependencias de Maven entre ejecuciones
+para que la CI sea más rápida.
+
