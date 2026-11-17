@@ -456,3 +456,26 @@ origin  https://github.com/magadiflo/trunk-based-development-practice.git (push)
 > **Sobre la autenticación:** cuando `dev-partner-lab` realice su primer push, GCM deberá utilizar las credenciales de
 > esa cuenta
 > (ver [Primer push de dev-partner-lab](#primer-push-de-dev-partner-lab-iniciar-sesión-con-la-cuenta-correcta)).
+
+### 5. Proyecto base Spring Boot + CI (commit inicial)
+
+El proyecto base se genera una sola vez y lo sube `magadiflo`.
+
+**Paso 1: generar el proyecto** en
+[start.spring.io](https://start.spring.io/#!type=maven-project&language=java&platformVersion=4.1.2&packaging=jar&configurationFileFormat=yaml&jvmVersion=25&groupId=dev.magadiflo&artifactId=trunk-based-development-practice&packageName=dev.magadiflo.tbd&dependencies=web,lombok):
+
+| Campo        | Valor                                             |
+|--------------|---------------------------------------------------|
+| Project      | Maven                                             |
+| Language     | Java                                              |
+| Spring Boot  | 4.1.2                                             |
+| Group        | `dev.magadiflo`                                   |
+| Artifact     | `trunk-based-development-practice`                |
+| Package name | `dev.magadiflo.tbd`                               |
+| Packaging    | Jar                                               |
+| Java         | 25 *(o la que uses; debe coincidir con `ci.yml`)* |
+| Dependencies | Spring Web, Lombok                                |
+
+Descomprime el `.zip` y copia **su contenido** (`pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/`, `.gitignore`, `src/`) dentro del
+clon de `magadiflo`.
+
