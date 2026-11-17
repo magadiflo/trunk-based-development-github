@@ -569,3 +569,47 @@ con la que usas en tu máquina (`java -version`). `temurin` es la distribución 
 `setup-java` v6 acepta versiones mayores como `'25'`. `cache: maven` guarda las dependencias de Maven entre ejecuciones
 para que la CI sea más rápida.
 
+**Paso 3: el permiso de ejecución de `mvnw`.** Al descomprimir en Windows, `mvnw` suele subirse **sin permiso de
+ejecución** y en el runner Linux de GitHub la CI fallaría con `Permission denied`. Se corrige en el índice de Git:
+
+`[magadiflo]`
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git add .
+warning: in the working copy of '.gitattributes', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.mvn/wrapper/maven-wrapper.properties', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'mvnw.cmd', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pom.xml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/main/java/dev/magadiflo/tbd/TrunkBasedDevelopmentPracticeApplication.java', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/main/resources/application.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/test/java/dev/magadiflo/tbd/TrunkBasedDevelopmentPracticeApplicationTests.java', LF will be replaced by CRLF the next time Git touches it
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git update-index --chmod=+x mvnw
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git ls-files -s mvnw
+100755 bd8896bf2217b46faa0291585e01ac1a3441a958 0       mvnw
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git add .`: prepara (*stage*) todos los cambios de la carpeta actual para el próximo commit.
+> - `git add`: mueve cambios al *staging area*, la "lista" de lo que entrará en el commit.
+> - `.`: significa "la carpeta actual y todo lo que contiene". Respeta el `.gitignore`.
+>
+> `git update-index --chmod=+x mvnw`: marca `mvnw` como ejecutable **dentro de Git**.
+> - `git update-index`: comando de bajo nivel que modifica el índice (el *staging area*) directamente.
+> - `--chmod=+x`: agrega el permiso de ejecución. Se hace en el índice porque en Windows el sistema de archivos no lo
+>   guarda como en Linux.
+> - `mvnw`: el archivo al que se aplica.
+>
+> `git ls-files -s mvnw`: muestra cómo está registrado `mvnw` en el índice.
+> - `git ls-files`: lista los archivos que Git está siguiendo.
+> - `-s` (*--stage*): agrega modo, hash y número de etapa de cada archivo.
+> - `mvnw`: limita la salida a ese archivo.
+> - El `100755` de la salida significa "archivo ejecutable" (antes era `100644`, archivo normal).
+
+
