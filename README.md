@@ -794,3 +794,22 @@ Con `magadiflo`:
 
 ![04.png](assets/04.png)
 
+### Recomendación: `pull` siempre con `rebase`
+
+En TBD se hace `git pull` muy seguido. Para mantener el historial lineal conviene configurarlo una vez en cada clon:
+
+```bash
+$ git config --local pull.rebase true
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git config --local pull.rebase true`: hace que `git pull` use `--rebase` por defecto en este repositorio.
+> - `pull.rebase`: la clave que decide cómo integra `git pull` lo que baja del remoto.
+> - `true`: el valor; equivale a escribir siempre `--rebase`.
+
+En los ejemplos se escribe de forma explícita `git pull --rebase`.
+
+> En esta documentación se usa `git switch -c <rama>` en lugar de `git checkout -b <rama>`. Son equivalentes; `switch`
+> es el comando más moderno.
+
