@@ -779,9 +779,10 @@ $ git branch -r
 > - `-r (--remotes)`: en lugar de las locales, lista las ramas de seguimiento remoto `(origin/...)`.
 > - La línea `origin/HEAD -> origin/main` muestra con claridad que `origin/HEAD` es un apuntador a `origin/main`.
 
-**Predicción para que la compruebes tú:** `magadiflo` solo tiene que ejecutar su próximo `git pull --rebase`
-(por ejemplo, al empezar el `Cambio #1`). Ese `fetch` creará `origin/HEAD` también en su clon, y su `git lg`
-mostrará (`HEAD -> main`, `origin/main`, `origin/HEAD`). Desde ese momento, los dos clones se ven iguales.
+**Qué pasará con `magadiflo`:** su clon todavía no tiene `origin/HEAD`, pero la tendrá en cuanto ejecute su primer
+`git pull --rebase`, porque ese comando hace un `git fetch` y el `fetch` crea la referencia, aunque no haya commits
+nuevos que descargar. Eso ocurre al empezar el `Cambio #1`, donde lo comprobaremos. Desde ese momento, los dos clones
+se verán iguales.
 
 ### 6. Configurar cómo se integran los PR
 
@@ -812,4 +813,187 @@ En los ejemplos se escribe de forma explícita `git pull --rebase`.
 
 > En esta documentación se usa `git switch -c <rama>` en lugar de `git checkout -b <rama>`. Son equivalentes; `switch`
 > es el comando más moderno.
+
+---
+
+## Cambio #1: commit directo a main (magadiflo)
+
+Un cambio **pequeño y de bajo riesgo**: un endpoint de saludo con su prueba. Todavía **no hay protección** en `main`,
+así que se puede empujar directo.
+
+### Funcionalidad
+
+`[magadiflo]`
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+Already up to date.
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 79389aa (HEAD -> main, origin/main, origin/HEAD) Initial commit
+```
+
+Observa que `git pull` respondió `Already up to date.` y, aun así, `origin/HEAD` apareció en el `git lg`. Es lo que
+adelantamos en el apartado **¿Por qué `origin/HEAD` aparece en un clon y en otro no?**
+
+Crea `src/main/java/dev/magadiflo/tbd/SaludoController.java`:
+
+```java
+package dev.magadiflo.tbd;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class SaludoController {
+
+    @GetMapping(path = "/api/saludo")
+    public String saludo() {
+        return "Hola";
+    }
+}
+```
+
+Y su prueba, `src/test/java/dev/magadiflo/tbd/SaludoControllerTest.java`:
+
+```java
+package dev.magadiflo.tbd;
+
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class SaludoControllerTest {
+    @Test
+    void saludoRetornaHola() {
+        assertThat(new SaludoController().saludo())
+                .isEqualTo("Hola");
+    }
+}
+```
+
+Antes de subir, **corre las pruebas en tu máquina** (en TBD nunca se sube sin probar):
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ mvnw verify
+[INFO] Scanning for projects...
+[INFO] Loaded 24543 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+...
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  5.546 s
+[INFO] Finished at: 2026-11-18T18:10:40-05:00
+[INFO] ------------------------------------------------------------------------
+```
+
+📖 **Comandos de este bloque**
+
+**`mvnw verify`** ejecuta el ciclo de vida de Maven hasta la fase `verify`: compila, corre las pruebas, empaqueta la
+aplicación y revisa que el resultado sea válido. Es la verificación completa del proyecto.
+
+- **`mvnw`**: el *Maven Wrapper*. Es un script que viene dentro del proyecto y descarga la versión de Maven que el
+  proyecto necesita, así que no hace falta tener Maven instalado. En Linux o macOS (y en el CI) se escribe `./mvnw`.
+- **`verify`**: es una *fase* del ciclo de vida de Maven. Al pedir una fase, Maven ejecuta **todas las anteriores** en
+  orden.
+
+**¿En qué se diferencia de `mvnw test`?**
+
+Las fases principales del ciclo, en orden, son:
+
+```text
+compile  →  test  →  package  →  integration-test  →  verify
+```
+
+| Comando       | Qué ejecuta                                                                                                                    | Qué deja en `target/`                        |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------|
+| `mvnw test`   | compila el código y ejecuta las pruebas unitarias                                                                              | solo clases compiladas y reportes de pruebas |
+| `mvnw verify` | todo lo anterior + `package` (genera el `.jar`) + pruebas de integración si el proyecto las configuró + comprobaciones finales | además, el `.jar` ejecutable de Spring Boot  |
+
+En un proyecto recién creado con Spring Initializr no hay pruebas de integración separadas. Por eso, aquí `verify`
+equivale a **`test` + `package`**. La diferencia práctica es que `verify` también confirma que la aplicación **se puede
+empaquetar** (por ejemplo, que `spring-boot-maven-plugin` genera el `.jar` sin errores), algo que `test` no comprueba.
+
+**¿Cuál usar?**
+
+- **Mientras desarrollas** (ciclo rápido de escribir, probar, corregir): `mvnw test` es suficiente y más rápido.
+- **Antes de hacer `push` y en el CI**: `mvnw verify`. Si pasa en tu máquina, el CI debería pasar igual, porque ejecuta
+  el mismo comando (`./mvnw -B verify`).
+
+Puedes comprobarlo en tu propia salida: con `verify` verás, después de las pruebas (`maven-surefire-plugin ... test`),
+las líneas de `maven-jar-plugin ... jar` y `spring-boot-maven-plugin ... repackage`. Con `test` el comando termina justo
+después de las pruebas.
+
+**`-B` (en el CI):** *batch mode*. Desactiva los colores y las barras de progreso, que en los logs de GitHub Actions
+solo estorban.
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git add .
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git commit -m "Agregar endpoint /api/saludo"
+[main 2c7b7de] Agregar endpoint /api/saludo
+ 2 files changed, 26 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/SaludoController.java
+ create mode 100644 src/test/java/dev/magadiflo/tbd/SaludoControllerTest.java
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git push
+Enumerating objects: 25, done.
+Counting objects: 100% (25/25), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (8/8), done.
+Writing objects: 100% (15/15), 1.29 KiB | 440.00 KiB/s, done.
+Total 15 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (1/1), completed with 1 local object.
+To https://github.com/magadiflo/trunk-based-development-practice.git
+   79389aa..2c7b7de  main -> main
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git push` (sin argumentos): sube los commits de la rama actual a la rama remota con la que está enlazada.
+> Funciona sin `origin main` porque `-u` ya dejó ese enlace hecho.
+
+`[dev-partner-lab]` recibe el cambio:
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 25, done.
+remote: Counting objects: 100% (25/25), done.
+remote: Compressing objects: 100% (7/7), done.
+remote: Total 15 (delta 1), reused 15 (delta 1), pack-reused 0 (from 0)
+Unpacking objects: 100% (15/15), 1.27 KiB | 33.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   79389aa..2c7b7de  main       -> origin/main
+Updating 79389aa..2c7b7de
+Fast-forward
+ src/main/java/dev/magadiflo/tbd/SaludoController.java     | 13 +++++++++++++
+ src/test/java/dev/magadiflo/tbd/SaludoControllerTest.java | 13 +++++++++++++
+ 2 files changed, 26 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/SaludoController.java
+ create mode 100644 src/test/java/dev/magadiflo/tbd/SaludoControllerTest.java
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 2c7b7de (HEAD -> main, origin/main, origin/HEAD) Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+### Resultado
+
+- Historial **lineal**, sin ramas ni commits de merge.
+- En **GitHub > Actions** aparece una nueva ejecución de **CI** disparada por el `push` a `main`.
+
+![05.png](assets/05.png)
+
+> **¡IMPORTANTE!** El commit directo a `main` solo es sano si tienes **pruebas locales y CI**. Cuando más abajo se
+> active el `ruleset` que exige `Pull Request`, este tipo de push será **rechazado**.
+
+---
 
