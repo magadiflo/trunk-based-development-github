@@ -606,13 +606,27 @@ $ git ls-files -s mvnw
 
 **Paso 4: commit inicial y push.**
 
+`[magadiflo]`
+
 ```bash
 M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
 $ git commit -m "Initial commit"
 
 M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
 $ git push -u origin main
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 79389aa (HEAD -> main, origin/main) Initial commit
 ```
+
+En mis configuraciones globales tengo configurado el siguiente alias:
+
+- `alias.lg=log --oneline --decorate --all --graph`
+
+Por lo que los siguientes comandos son equivalentes:
+
+- `git lg` == `git log --oneline --graph --all --decorate`
 
 > **📖 Comandos de este bloque**
 >
@@ -657,15 +671,13 @@ $ git lg
 * 79389aa (HEAD -> main, origin/main, origin/HEAD) Initial commit
 ````
 
-En mis configuraciones globales tengo configurado los siguientes alias:
+En mis configuraciones globales tengo configurado el siguiente alias:
 
-- `alias.lg=log --oneline --decorate --all --graph`
 - `alias.s=status -s -b`
 
 Por lo que los siguientes comandos son equivalentes:
 
 - `git s` == `git status -sb`
-- `git lg` == `git log --oneline --graph --all --decorate`
 
 > **📖 Comandos de este bloque**
 >
@@ -692,4 +704,82 @@ Por lo que los siguientes comandos son equivalentes:
 >   local de la rama remota.
 
 > Observa la diferencia con GitFlow: **no se crea `develop`**. Solo existe `main`.
+
+#### 🔎 ¿Por qué `origin/HEAD` aparece en un clon y en otro no?
+
+En el `git lg` de los dos clones, justo después del commit inicial, se ve esto:
+
+`[magadiflo]`
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 79389aa (HEAD -> main, origin/main) Initial commit
+````
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 79389aa (HEAD -> main, origin/main, origin/HEAD) Initial commit
+````
+
+**Qué es `origin/HEAD`.** Es una referencia que le dice a Git **cuál es la rama principal (por defecto) del remoto.**
+En realidad es un “apuntador” a otra referencia: en este caso, a `origin/main`. Sirve para que Git y algunas
+herramientas sepan cuál es la rama por defecto de origin (por ejemplo, `git remote show origin` la muestra como
+`HEAD branch`). No cambia ni tu historial ni tus commits, y no influye en nada de lo que hacemos en la práctica.
+
+**Por qué en `magadiflo` no está.** Git la crea al clonar un repositorio que ya tiene contenido, porque en ese momento
+el remoto puede decirle cuál es su rama por defecto. Pero clonamos el repositorio vacío, y un repositorio vacío no tiene
+rama por defecto que recordar. Después, `git push -u origin main` sube commits, pero no crea esa referencia. Por eso
+`magadiflo` todavía no la tiene.
+
+**Por qué en `dev-partner-lab` sí está.** Su clon también se hizo con el repositorio vacío, pero luego ejecutó
+`git pull --rebase`, que primero hace un `git fetch`. Desde `Git 2.48`, `git fetch` tiene la opción
+`remote.<nombre>.followRemoteHEAD`, cuyo valor por defecto es `create`: si el remoto tiene un `HEAD` y en tu copia
+local no existe `origin/HEAD`, el fetch la crea. Con versiones anteriores de Git, esa referencia no se crea en este
+flujo.
+
+Cómo comprobarlo en tu máquina:
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git --version
+git version 2.56.1.windows.1
+````
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git symbolic-ref refs/remotes/origin/HEAD
+refs/remotes/origin/main
+````
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git branch -r
+  origin/HEAD -> origin/main
+  origin/main
+````
+
+> **📖 Comandos de este bloque**
+>
+> `git --version`: muestra la versión de Git instalada. Si es 2.48 o superior, tu Git crea `origin/HEAD` durante el
+> fetch.
+>
+> `git symbolic-ref refs/remotes/origin/HEAD`: muestra a qué apunta `origin/HEAD`.
+>
+> - `git symbolic-ref`: lee (o escribe) una referencia simbólica, es decir, una referencia que apunta a otra.
+> - `refs/remotes/origin/HEAD`: el nombre completo de `origin/HEAD`.
+> - Si existe, responde `refs/remotes/origin/main`. Si no existe, no imprime nada y termina con error.
+>
+> `git branch -r`: lista las ramas remotas que tu copia local conoce.
+>
+> - `git branch`: administra ramas (ya explicado; sin argumentos lista las locales).
+> - `-r (--remotes)`: en lugar de las locales, lista las ramas de seguimiento remoto `(origin/...)`.
+> - La línea `origin/HEAD -> origin/main` muestra con claridad que `origin/HEAD` es un apuntador a `origin/main`.
+
+**Predicción para que la compruebes tú:** `magadiflo` solo tiene que ejecutar su próximo `git pull --rebase`
+(por ejemplo, al empezar el `Cambio #1`). Ese `fetch` creará `origin/HEAD` también en su clon, y su `git lg`
+mostrará (`HEAD -> main`, `origin/main`, `origin/HEAD`). Desde ese momento, los dos clones se ven iguales.
 
