@@ -783,3 +783,14 @@ $ git branch -r
 (por ejemplo, al empezar el `Cambio #1`). Ese `fetch` creará `origin/HEAD` también en su clon, y su `git lg`
 mostrará (`HEAD -> main`, `origin/main`, `origin/HEAD`). Desde ese momento, los dos clones se ven iguales.
 
+### 6. Configurar cómo se integran los PR
+
+Con `magadiflo`:
+
+> **Repositorio > Settings > General > Pull Requests**
+> - ⬜ Desmarca **Allow merge commits** (para mantener el historial lineal)
+> - ✅ **Allow squash merging** (en *Default commit message* elige **Pull request title**)
+> - ✅ **Automatically delete head branches** (la rama remota se borra sola al integrar el PR)
+
+![04.png](assets/04.png)
+
