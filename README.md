@@ -514,6 +514,37 @@ total 0
 -rw-r--r-- 1 magadiflo 197121 0 Nov 16 23:07 ci.yml
 ````
 
+**¿Qué es el archivo `ci.yml` y cómo funciona?**
+
+Este archivo describe un **workflow de GitHub Actions**: una receta que GitHub ejecuta automáticamente en sus propios
+servidores cada vez que ocurre algo en el repositorio. Aquí la receta es la **Integración Continua (CI)**: compilar el
+proyecto y correr las pruebas **en un entorno limpio**, para que "en mi máquina funciona" deje de ser la medida de
+calidad.
+
+**Qué pasa, paso a paso:**
+
+1. Subes tu rama y abres un `Pull Request` hacia `main`.
+2. GitHub lee los archivos de `.github/workflows/` y detecta que este workflow debe ejecutarse por ese evento.
+3. GitHub levanta una **máquina virtual nueva y vacía** (llamada *runner*).
+4. En esa máquina ejecuta, en orden, los pasos del archivo: descargar el código, instalar Java, compilar y probar.
+5. Si todo pasa, el PR muestra un check verde ✅. Si algo falla, muestra una ❌ y puedes abrir el log para ver el motivo.
+6. Nuestro *ruleset* exige que el check `build` esté en verde. Con ❌ **no se puede hacer el merge**.
+
+**¿Cuándo se ejecuta?** No en cualquier `push`. Según la sección `on:`:
+
+| Situación                                                        | ¿Se ejecuta?                     |
+|------------------------------------------------------------------|----------------------------------|
+| Abres un `PR` hacia `main`                                       | Sí                               |
+| Subes más commits a la rama de un PR abierto                     | Sí (se vuelve a ejecutar)        |
+| Haces `push` a una rama `feature/*` **sin** `PR` abierto         | No                               |
+| El `PR` se fusiona (Squash and merge) y el commit llega a `main` | Sí (valida que `main` siga sano) |
+| Haces `push` directo a `main`                                    | Sí                               |
+
+Los resultados están en la pestaña **Actions** del repositorio, y dentro de cada PR, en la sección de checks.
+
+**Una máquina nueva en cada ejecución:** como el runner empieza vacío, el workflow tiene que traer el código, instalar
+Java y descargar las dependencias cada vez. Por eso aparecen esos pasos.
+
 El archivo `ci.yml` tendrá el siguiente contenido:
 
 ```yaml
@@ -540,6 +571,104 @@ jobs:
         run: ./mvnw -B verify
 ```
 
+**Reglas básicas de YAML** (el formato del archivo):
+
+- La estructura se define con la **indentación**, usando espacios (2 por nivel) y **nunca tabuladores**. Un espacio mal
+  puesto cambia el significado o rompe el archivo.
+- `clave: valor` define una propiedad.
+- Una línea que empieza con `- ` es un **elemento de una lista**.
+- `[ main ]` es una lista escrita en una sola línea (equivale a `- main`).
+- `#` inicia un comentario.
+
+#### `name: CI`
+
+El nombre del workflow. Aparece en la pestaña *Actions* y en el PR, junto al nombre del job (verás algo como
+`CI / build (pull_request)`). Es solo una etiqueta: no es el nombre del archivo ni afecta el funcionamiento.
+
+#### `on:`
+
+Define **cuándo** se ejecuta el workflow, es decir, qué eventos lo disparan. Si falta o queda vacío, GitHub marca el
+error `No event triggers defined in on`.
+
+```yaml
+  pull_request:
+    branches: [ main ]
+```
+
+- `pull_request`: se ejecuta cuando se **abre**, se **actualiza** (nuevo commit) o se **reabre** un Pull Request.
+- `branches: [ main ]`: filtro. Solo cuenta si el PR **apunta a `main`** (la rama destino).
+- Qué código prueba: GitHub prueba el resultado de **fusionar tu rama con `main`**, es decir, cómo quedaría el código si
+  se hiciera el merge ahora.
+
+```yaml
+  push:
+    branches: [ main ]
+```
+
+- `push`: se ejecuta cuando alguien sube commits al repositorio.
+- `branches: [ main ]`: solo si el `push` es a `main`. Cubre el merge de un PR (el squash genera un commit nuevo en
+  `main`) y los `push` directos.
+- Sin este filtro, se ejecutaría en cada `push` a cualquier rama.
+
+```yaml
+  merge_group:            # solo necesario si algún día usamos merge queue
+```
+
+- `merge_group`: evento de la *merge queue* (cola de fusión), una función de GitHub que encola los PR y los prueba
+  combinados antes de integrarlos.
+- No la usamos, así que este evento nunca se dispara y la línea es inofensiva. Se deja por si algún día se activa la
+  cola: sin ella, los checks requeridos no se reportarían.
+- No lleva valor después de los dos puntos, y es válido.
+
+#### `jobs:`
+
+Agrupa los **trabajos** del workflow. Cada job se ejecuta en su propia máquina virtual. Aquí hay uno solo.
+
+#### `build:`
+
+El **identificador** del job (nosotros lo elegimos). Importante: **este nombre es el que se registra como check
+requerido** en el ruleset (`build`). Si lo renombras aquí, debes actualizar también el ruleset, o el PR se quedará
+esperando un check que nunca llega.
+
+#### `runs-on: ubuntu-latest`
+
+El tipo de máquina donde corre el job: una máquina virtual con **Linux (Ubuntu)** alojada por GitHub. `ubuntu-latest`
+apunta a la versión estable más reciente que GitHub ofrece, así que con el tiempo puede cambiar de versión. En
+repositorios públicos su uso es gratuito.
+
+Como es Linux, el script se invoca como `./mvnw` y necesita permiso de ejecución. Por eso hicimos
+`git update-index --chmod=+x mvnw` en el commit inicial.
+
+#### `steps:`
+
+La lista de **pasos** del job. Se ejecutan **en orden**, y si uno falla, los siguientes no se ejecutan y el job queda en
+❌. Cada elemento empieza con `- `.
+
+#### `- uses: actions/checkout@v7`
+
+- `uses`: ejecuta una **acción** ya hecha, publicada por alguien. El formato es `propietario/repositorio@versión`.
+- `actions/checkout`: acción oficial de GitHub que **descarga el código del repositorio** en el runner. Como la máquina
+  arranca vacía, sin este paso no habría nada que compilar.
+- `@v7`: versión mayor de la acción. Recibe las correcciones menores de esa versión, pero no los cambios de versión
+  mayor.
+
+#### `- uses: actions/setup-java@v6` y su `with:`
+
+- `actions/setup-java`: acción oficial que **instala un JDK** en el runner y lo deja configurado.
+- `with:`: bloque con los **parámetros** de la acción anterior. Está indentado un nivel más porque pertenece a ese paso.
+- `distribution: temurin`: qué distribución de OpenJDK instalar. *Temurin* es la distribución de Eclipse Adoptium, de
+  uso muy común.
+- `java-version: '25'`: la versión de Java. Debe coincidir con `<java.version>` del `pom.xml`. Va entre comillas para
+  que YAML la lea como texto y no como número (una versión como `21.0` se interpretaría mal).
+- `cache: maven`: guarda las dependencias descargadas por Maven y las restaura en las siguientes ejecuciones. La primera
+  vez descarga todo, pero las siguientes son más rápidas. La caché se renueva cuando cambia el `pom.xml`.
+
+#### `- name: Compilar y ejecutar pruebas` y `run: ./mvnw -B verify`
+
+- `name`: etiqueta **opcional** del paso, que se muestra en el log. Los pasos con `uses` no la tienen aquí, y en el log
+  aparecen con su nombre técnico (por ejemplo, `Run actions/checkout@v7`).
+- `run`: ejecuta un **comando de terminal** en el runner (a diferencia de `uses`, que ejecuta una acción empaquetada).
+
 > **📖 Comandos de este bloque**
 >
 > `./mvnw -B verify`: compila el proyecto, ejecuta las pruebas y valida el resultado, sin pedir nada por consola.
@@ -549,20 +678,8 @@ jobs:
 > - `verify`: fase del ciclo de vida de Maven. Ejecuta todas las anteriores (compilar, probar, empaquetar) y luego las
 >   verificaciones finales.
 
-> El job se llama `build`: ese será el nombre del *check* que luego exigiremos en el ruleset.
-
-**Versiones usadas y cómo verificarlas.** Consultadas el 16 de noviembre de 2026 en las páginas de *Releases*:
-`actions/checkout` **v7** (última publicada: v7.0.1) y `actions/setup-java` **v6** (última publicada: v6.1.0). Las
-versiones cambian con el tiempo; para comprobarlas:
-
-1. Abre [`actions/checkout/releases`](https://github.com/actions/checkout/releases) y [
-   `actions/setup-java/releases`](https://github.com/actions/setup-java/releases) y busca la etiqueta **Latest**. En la
-   web ves la versión completa (`v7.0.1`); en el workflow se escribe solo la **mayor** (`@v7`).
-2. Lee las notas de la versión por si hay cambios incompatibles marcados como **[BREAKING]**. En `checkout`, el cambio
-   de comportamiento de v7 afecta a los eventos `pull_request_target` y `workflow_run`, que este workflow **no usa**
-   (usa `pull_request` y `push`).
-3. Revisa el `README.md` de cada action: sus ejemplos muestran la versión mayor vigente.
-4. Para no hacerlo a mano, **Dependabot** puede avisarte con un PR.
+**Si `verify` falla** (una prueba rota o un error de compilación), el comando devuelve un código de error. El paso se
+marca como fallido, el job queda en ❌, el check `build` del PR no pasa y el ruleset bloquea el merge.
 
 **Sobre Java:** `java-version: '25'` debe coincidir con la versión de tu proyecto (`<java.version>` en el `pom.xml`) y
 con la que usas en tu máquina (`java -version`). `temurin` es la distribución de Java (Eclipse Temurin); el README de
@@ -959,12 +1076,15 @@ empaquetar** (por ejemplo, que `spring-boot-maven-plugin` genera el `.jar` sin e
 - **Antes de hacer `push` y en el CI**: `mvnw verify`. Si pasa en tu máquina, el CI debería pasar igual, porque ejecuta
   el mismo comando (`./mvnw -B verify`).
 
-Puedes comprobarlo en tu propia salida: con `verify` verás, después de las pruebas (`maven-surefire-plugin ... test`),
-las líneas de `maven-jar-plugin ... jar` y `spring-boot-maven-plugin ... repackage`. Con `test` el comando termina justo
-después de las pruebas.
+`-B`: *batch mode* (modo por lotes). Le dice a Maven que corra en modo **no interactivo**: nunca se detiene a pedir
+datos por teclado y, si necesitara una respuesta, usa el valor por defecto en lugar de esperar. En un CI es
+imprescindible, porque no hay nadie frente a la terminal y una pregunta dejaría el job colgado. Como efecto
+secundario, también desactiva los colores y las animaciones de progreso en la salida, que en los logs de GitHub
+Actions solo estorban.
 
-**`-B` (en el CI):** *batch mode*. Desactiva los colores y las barras de progreso, que en los logs de GitHub Actions
-solo estorban.
+Si comprobamos la salida en nuestra propia máquina: Con `verify` veremos, después de las pruebas
+(`maven-surefire-plugin ... test`), las líneas de `maven-jar-plugin ... jar` y `spring-boot-maven-plugin ...
+repackage`. Con `test` el comando termina justo después de las pruebas.
 
 ```bash
 M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
