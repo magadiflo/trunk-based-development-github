@@ -703,7 +703,43 @@ Por lo que los siguientes comandos son equivalentes:
 > - `--decorate`: muestra los nombres junto al commit: `HEAD -> main` es dónde estás parado y `origin/main` es la copia
 >   local de la rama remota.
 
-> Observa la diferencia con GitFlow: **no se crea `develop`**. Solo existe `main`.
+**¿Quién rebasa a quién?** Siempre **tus commits locales** (los que aún no subiste) se colocan **encima** de lo que
+trajo el remoto. Nunca al revés:
+
+1. `git fetch` descarga los commits nuevos del remoto y mueve `origin/main`.
+2. `git rebase origin/main` toma tus commits locales que no están en el remoto, los "levanta" y los vuelve a colocar
+   encima del último commit de `origin/main`.
+3. Tu `main` queda apuntando al final de esa línea. No hace falta ningún `git merge`.
+
+Antes (tú tienes `D` y `E` sin subir; el remoto ya tiene `C`):
+
+```text
+A---B---C                origin/main (lo que bajó el fetch)
+     \
+      D---E              main (local)
+```
+
+- `A` y `B` están en ambos lados.
+- `C` solo existe en el remoto.
+- `D` y `E` solo existen en tu local, y nacen de `B`.
+
+Después de `git pull --rebase`:
+
+```text
+A---B---C---D'---E'      main (local)
+        |
+        origin/main
+```
+
+- `D'` y `E'` son **copias** de `D` y `E`: mismo contenido y mismo mensaje, pero **con otro hash**, porque ahora tienen
+  otro commit padre. Por eso se dice que el rebase "reescribe" tus commits locales.
+- Los commits del remoto (`C`) **no se tocan**.
+- Si no tenías commits locales, no hay nada que rebasar: tu `main` solo avanza hasta `origin/main`.
+- Si un commit tuyo choca con lo que trajo el remoto, el rebase se detiene para que resuelvas el conflicto (lo veremos
+  en el [Cambio #2](#cambio-2-conflicto-en-push-directo)).
+
+> ⚠️ **Regla de oro:** solo se rebasan commits que **todavía no subiste**. Reescribir commits que otros ya descargaron
+> les complica el historial.
 
 #### 🔎 ¿Por qué `origin/HEAD` aparece en un clon y en otro no?
 
