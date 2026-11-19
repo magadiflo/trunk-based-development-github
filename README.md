@@ -135,15 +135,15 @@ Sin estas prácticas, TBD termina degradándose a "feature branching con otro no
 
 ## Práctica: Tabla de cambios
 
-| ID        | DESCRIPCIÓN CORTA                                               | RAMA DE TRABAJO                           | RAMA ORIGEN | RAMA DESTINO         | QUIÉN TRABAJA                               | QUIÉN REVISA    |
-|-----------|-----------------------------------------------------------------|-------------------------------------------|-------------|----------------------|---------------------------------------------|-----------------|
-| Cambio #1 | Endpoint `/api/saludo` (commit directo)                         | *(ninguna)*                               | main        | main                 | magadiflo                                   | —               |
-| Cambio #2 | Conflicto: ambos editan `application.properties` (push directo) | *(ninguna)*                               | main        | main                 | magadiflo y dev-partner-lab                 | —               |
-| Cambio #3 | Validar email al registrar usuario                              | `feature/validar-email`                   | main        | main                 | dev-partner-lab                             | magadiflo       |
-| Cambio #4 | Nuevo checkout **incompleto** detrás de un feature flag         | `feature/nuevo-checkout`                  | main        | main                 | magadiflo                                   | dev-partner-lab |
-| Cambio #5 | Dos PR en paralelo: el segundo entra en conflicto               | `feature/configurar-reintentos`           | main        | main                 | dev-partner-lab                             | magadiflo       |
-| Cambio #6 | Preparar la versión 1.0                                         | `release/1.0`                             | main        | *(no vuelve a main)* | magadiflo                                   | —               |
-| Cambio #7 | Bug en producción (v1.0.0) → v1.0.1                             | `fix/email-con-signo-mas` y `cherry-pick` | main        | main y `release/1.0` | dev-partner-lab (fix) y magadiflo (release) | magadiflo       |
+| ID        | DESCRIPCIÓN CORTA                                        | RAMA DE TRABAJO                           | RAMA ORIGEN | RAMA DESTINO         | QUIÉN TRABAJA                               | QUIÉN REVISA    |
+|-----------|----------------------------------------------------------|-------------------------------------------|-------------|----------------------|---------------------------------------------|-----------------|
+| Cambio #1 | Endpoint `/api/saludo` (commit directo)                  | *(ninguna)*                               | main        | main                 | magadiflo                                   | —               |
+| Cambio #2 | Conflicto: ambos editan `application.yml` (push directo) | *(ninguna)*                               | main        | main                 | magadiflo y dev-partner-lab                 | —               |
+| Cambio #3 | Validar email al registrar usuario                       | `feature/validar-email`                   | main        | main                 | dev-partner-lab                             | magadiflo       |
+| Cambio #4 | Nuevo checkout **incompleto** detrás de un feature flag  | `feature/nuevo-checkout`                  | main        | main                 | magadiflo                                   | dev-partner-lab |
+| Cambio #5 | Dos PR en paralelo: el segundo entra en conflicto        | `feature/configurar-reintentos`           | main        | main                 | dev-partner-lab                             | magadiflo       |
+| Cambio #6 | Preparar la versión 1.0                                  | `release/1.0`                             | main        | *(no vuelve a main)* | magadiflo                                   | —               |
+| Cambio #7 | Bug en producción (v1.0.0) → v1.0.1                      | `fix/email-con-signo-mas` y `cherry-pick` | main        | main y `release/1.0` | dev-partner-lab (fix) y magadiflo (release) | magadiflo       |
 
 > Entre los Cambios `#2` y `#3` se **activa la protección de `main`**. Por eso los dos primeros se hacen con commit
 > directo y el resto con Pull Request.
@@ -1153,3 +1153,311 @@ $ git lg
 
 ---
 
+## Cambio #2: conflicto en un push directo (magadiflo y dev-partner-lab)
+
+Es el caso real de integrar seguido: **los dos tocan la misma zona del mismo archivo**. Ambos parten de `main`
+actualizado.
+
+### Funcionalidad
+
+`[dev-partner-lab]` agrega una línea al final de `src/main/resources/application.yml` y **sube primero**:
+
+````yml
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+  cache:
+    ttl: 60s
+````
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git add .
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git commit -m "Configurar TTL de caché"
+[main 0d0d372] Configurar TTL de caché
+ 1 file changed, 4 insertions(+)
+ 
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git push
+````
+
+Apenas ejecutamos el comando `git push` se nos abre la siguiente ventana de GitHub para iniciar sesión con nuestra
+cuenta de colaborador `dev-partner-lab`:
+
+![06.png](assets/06.png)
+
+Seleccionamos `Sign in with a code` dado que si elegimos `Sign in with your browser`, lo más probable es que se use la
+sesión que ya tenemos abierta en nuestro navegador predeterminado, es decir `magadiflo`. Así que para evitarnos
+problemas elegiremos `Sign in with a code` y seguimos los siguientes pasos:
+
+1. Con esta opción **no dependemos del navegador donde ya hay una sesión:** nos muestra un código y una dirección
+   (normalmente https://github.com/login/device).
+
+![07.png](assets/07.png)
+
+2. **Abrimos un navegador e iniciamos sesión como `dev-partner-lab`**
+
+![08.png](assets/08.png)
+
+3. **En ese mismo navegador ingresamos a la dirección https://github.com/login/device** e introducimos el código.
+
+![09.png](assets/09.png)
+
+![10.png](assets/10.png)
+
+![11.png](assets/11.png)
+
+![12.png](assets/12.png)
+
+Una vez que nos hemos autenticado con nuestro usuario `dev-partner-lab` el comando `git push` continuará con su curso
+y subirá nuestros commits al repositorio remoto:
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git push
+Enumerating objects: 11, done.
+Counting objects: 100% (11/11), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (5/5), done.
+Writing objects: 100% (6/6), 557 bytes | 557.00 KiB/s, done.
+Total 6 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (1/1), completed with 1 local object.
+To https://github.com/magadiflo/trunk-based-development-practice.git
+   2c7b7de..0d0d372  main -> main
+   
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 0d0d372 (HEAD -> main, origin/main, origin/HEAD) Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit 
+````
+
+`[magadiflo]`, sin haber hecho `pull`, agrega **otra línea en el mismo lugar** `src/main/resources/application.yml`
+e intenta subir:
+
+````yml
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+  timeout: 5s
+````
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git add . && git commit -m "Configurar timeout de integración"
+warning: in the working copy of 'src/main/resources/application.yml', LF will be replaced by CRLF the next time Git touches it
+[main a8e7628] Configurar timeout de integración
+ 1 file changed, 3 insertions(+)
+````
+
+### El push es rechazado
+
+`magadiflo` intenta subir su commit, pero Git **rechaza el push**: el remoto tiene un commit (el de `dev-partner-lab`)
+que `magadiflo` todavía no tiene. Git no sobrescribe trabajo ajeno, así que pide integrar primero esos cambios. La pista
+está en el mensaje: `rejected ... (fetch first)`.
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git push
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ ! [rejected]        main -> main (fetch first)
+error: failed to push some refs to 'https://github.com/magadiflo/trunk-based-development-practice.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+````
+
+### Integrar los cambios del remoto con `git pull --rebase`
+
+Antes de volver a subir, `magadiflo` debe traer el commit del remoto y colocar el suyo encima. El `hint` de Git sugiere
+`git pull`, pero usaremos `git pull --rebase`: por defecto, `git pull` crearía un commit de merge, y con `--rebase`
+el historial se mantiene en **línea recta**, que es lo que buscamos en `Trunk Based Development`.
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (4/4), done.
+remote: Total 6 (delta 1), reused 6 (delta 1), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 537 bytes | 53.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   2c7b7de..0d0d372  main       -> origin/main
+Auto-merging src/main/resources/application.yml
+CONFLICT (content): Merge conflict in src/main/resources/application.yml
+error: could not apply a8e7628... Configurar timeout de integración
+hint: Resolve all conflicts manually, mark them as resolved with
+hint: "git add/rm <conflicted_files>", then run "git rebase --continue".
+hint: You can instead skip this commit: run "git rebase --skip".
+hint: To abort and get back to the state before "git rebase", run "git rebase --abort".
+hint: Disable this message with "git config set advice.mergeConflict false"
+Could not apply a8e7628... # Configurar timeout de integración
+```
+
+### Aquí aparece el conflicto
+
+Al ejecutar `git pull --rebase`, Git trajo el commit de `dev-partner-lab` y empezó a re-aplicar encima el commit de
+`magadiflo`. Como los dos modificaron la misma zona de `application.yml`, Git no puede decidir solo qué conservar y
+**detiene el rebase**. Lo que sigue es resolver ese conflicto.
+
+Estas son las líneas clave de la salida:
+
+- `CONFLICT (content): Merge conflict in src/main/resources/application.yml`: indica **en qué archivo** está el
+  conflicto.
+- `error: could not apply a8e7628... Configurar timeout de integración`: indica **qué commit** (el de `magadiflo`) no se
+  pudo re-aplicar.
+- Las líneas `hint:` son sugerencias de Git. Las tres opciones son:
+    - resolver el conflicto, hacer `git add` y `git rebase --continue`;
+    - `git rebase --skip`, que descarta ese commit;
+    - `git rebase --abort`, que cancela todo y vuelve al estado anterior.
+
+El prompt también cambió: ahora dice `(HEAD detached at 0d0d372)` en lugar de `(main -> origin)`. Es normal. Mientras
+dura el rebase, Git se coloca temporalmente en el commit del remoto (`0d0d372`) y desde ahí re-aplica tus commits. Al
+terminar, `main` vuelve a apuntar al resultado final.
+
+Vemos el estado con `git s` y el contenido del archivo con `cat`:
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (HEAD detached at 0d0d372)
+$ git s
+## HEAD (no branch)
+UU src/main/resources/application.yml
+
+M:\practice\magadiflo\trunk-based-development-practice (HEAD detached at 0d0d372)
+$ cat src/main/resources/application.yml
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+<<<<<<< HEAD
+  cache:
+    ttl: 60s
+=======
+  timeout: 5s
+>>>>>>> a8e7628 (Configurar timeout de integración)
+````
+
+Podemos abrir el archivo `application.yml` con el usuario `magadiflo` y vemos que tenemos el conflicto que debemos
+resolver:
+
+```text
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+<<<<<<< HEAD
+  cache:
+    ttl: 60s
+=======
+  timeout: 5s
+>>>>>>> a8e7628 (Configurar timeout de integración)
+```
+
+> **📖 Comandos de este bloque**
+>
+> `cat src/main/resources/application.yml`: muestra en pantalla el contenido del archivo.
+> - `cat`: imprime el contenido de un archivo.
+> - La ruta indica cuál. Aquí sirve para ver las **marcas de conflicto** (`<<<<<<<`, `=======`, `>>>>>>>`) que dejó Git.
+
+> **Ojo con la inversión de nombres durante un `rebase`:** `HEAD` (lo de arriba) es **lo que ya estaba en el remoto**
+> (el cambio de `dev-partner-lab`) y lo de abajo es **el commit de `magadiflo` que se está re-aplicando**. Es al revés
+> que en un `merge`.
+
+`magadiflo` **conserva ambas líneas** (edita el archivo manualmente y borra las marcas `<<<<<<<`, `=======`, `>>>>>>>`;
+en IntelliJ puedes usar *Git > Resolve Conflicts*):
+
+```yml
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+  cache:
+    ttl: 60s
+  timeout: 5s
+```
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (HEAD detached at 0d0d372)
+$ git add src/main/resources/application.yml
+````
+
+Al hacer `git rebase --continue` se nos abrirá el editor para editar el commit, nosotros simplemente lo cerramos y
+mantenemos el commit inicial *"Configurar timeout de integración"*.
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (HEAD detached at 0d0d372)
+$ git rebase --continue
+[detached HEAD 7af7e27] Configurar timeout de integración
+ 1 file changed, 2 insertions(+)
+Successfully rebased and updated refs/heads/main.
+````
+
+### Resumen: cómo resolver este conflicto
+
+| Paso | Qué haces                                                            | Qué ocurre                                                                                                              |
+|------|----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| 1    | `git pull --rebase`                                                  | Git trae los commits del remoto y empieza a re-aplicar el tuyo encima. Aparece el conflicto y el rebase **se detiene**. |
+| 2    | `git status` (opcional)                                              | Muestra el archivo en conflicto marcado como `UU`.                                                                      |
+| 3    | Editar el archivo a mano (o con IntelliJ: *Git > Resolve Conflicts*) | Decides qué se conserva y **borras las marcas** `<<<<<<<`, `=======` y `>>>>>>>`.                                       |
+| 4    | `git add <archivo>`                                                  | Le avisas a Git que ese conflicto ya está resuelto.                                                                     |
+| 5    | `git rebase --continue`                                              | Git crea el commit con la resolución y termina el rebase. Si se abre un editor, ciérralo.                               |
+
+Si te pierdes en cualquier momento antes del paso 5, `git rebase --abort` cancela todo y vuelves al estado anterior.
+
+> **El `git push` que viene a continuación ya no forma parte de la resolución del conflicto.** Es el mismo `push` que
+> Git había **rechazado** al principio. Ahora que tu rama está encima de lo que había en el remoto, el `push` ya puede
+> subir tus commits.
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git push
+Enumerating objects: 11, done.
+Counting objects: 100% (11/11), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (5/5), done.
+Writing objects: 100% (6/6), 521 bytes | 521.00 KiB/s, done.
+Total 6 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/magadiflo/trunk-based-development-practice.git
+   0d0d372..7af7e27  main -> main
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git add src/main/resources/application.yml`: igual que `git add .`, pero prepara **solo ese archivo**.
+> Aquí le avisa a Git que el conflicto de ese archivo ya está resuelto.
+>
+> `git rebase --continue`: sigue con el `rebase` después de resolver un conflicto.
+> - `git rebase`: vuelve a aplicar tus commits sobre otra base (aquí, sobre el commit nuevo del remoto).
+> - `--continue`: "ya resolví el conflicto y lo preparé con `git add`; continúa con los commits que faltan".
+> - Su contraparte es `--abort`: cancela el `rebase` y deja la rama como estaba antes de empezarlo.
+
+### Resultado
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 7af7e27 (HEAD -> main, origin/main, origin/HEAD) Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+Historial lineal otra vez. **Lección:** como los cambios son pequeños y frecuentes, el conflicto es de **una línea** y
+se resuelve en un minuto. En `GitFlow`, ese mismo conflicto aparecería **semanas después**, al fusionar dos `feature`
+enormes en `develop`.
+
+> Si en medio del `rebase` te pierdes, vuelves atrás con `git rebase --abort`.
+
+---
