@@ -1558,3 +1558,132 @@ enormes en `develop`.
 > Si en medio del `rebase` te pierdes, vuelves atrás con `git rebase --abort`.
 
 ---
+
+## Proteger main en GitHub
+
+A partir de aquí **`main` es sagrada**: nadie empuja directo. Se protege con un *ruleset*.
+
+Esta configuración la hace **`magadiflo`**, el dueño del repositorio, porque en un repositorio de cuenta personal solo
+el dueño tiene permiso de administración. Un colaborador como `dev-partner-lab` puede subir ramas y abrir
+`Pull Requests`, pero **no puede crear ni modificar rulesets**, así que tampoco puede quitar las reglas. Entramos al
+repositorio con el usuario `magadiflo` y realizamos las siguientes configuraciones:
+
+> **Repositorio > Settings > Rules > Rulesets > New ruleset > New branch ruleset**
+> - **Ruleset name:** `proteger-main`
+> - **Enforcement status:** `Active`
+> - **Bypass list:** déjala **vacía** (así las reglas también aplican al dueño del repositorio)
+> - **Target branches > Add target > Include default branch**
+> - **Branch rules:**
+>   - ✅ **Restrict deletions**
+>   - ✅ **Require linear history**
+>   - ✅ **Require a pull request before merging** → *Required approvals:* `1` → *Allowed merge methods:* solo `Squash`
+>   - ✅ **Require status checks to pass** → **Add checks** → `build`
+>   - ✅ **Block force pushes**
+
+> El check `build` solo aparece en el buscador si el workflow **ya se ejecutó** recientemente. Por eso corrimos la CI en
+> los Cambios #1 y #2 **antes** de crear el `ruleset`.
+
+![13.png](assets/13.png)
+
+**Por qué 1 aprobación:** en GitHub **el autor de un PR no puede aprobar su propio PR**. Con dos cuentas, cada una
+revisa los PR de la otra: justo el flujo real de un equipo.
+
+> Si practicas **solo**, con una sola cuenta, pon *Required approvals* en `0` (o agrégate a la *Bypass list*); de lo
+> contrario no podrás integrar tus propios PR.
+
+Después de dar clic en el botón `Create`, se nos crea la regla `proteger-main`:
+
+![14.png](assets/14.png)
+
+### Probar que main está protegida
+
+`[magadiflo]` intenta, a propósito, un push directo. Primero creamos un archivo `README.md` en la raíz del proyecto
+y le agregamos un texto `# Prueba`.
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git s
+## main...origin/main
+?? README.md
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ cat README.md
+# Prueba 
+````
+
+Agregamos al `Staging Area`, lo `commiteamos` y tratamos de hacer un `push` directo al repositorio remoto.
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git add .
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git commit -m "Intento de push directo"
+[main ddd219f] Intento de push directo
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git push
+Enumerating objects: 4, done.
+Counting objects: 100% (4/4), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (2/2), done.
+Writing objects: 100% (3/3), 297 bytes | 297.00 KiB/s, done.
+Total 3 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (1/1), completed with 1 local object.
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: Review all repository rules at https://github.com/magadiflo/trunk-based-development-practice/rules?ref=refs%2Fheads%2Fmain
+remote:
+remote: - Changes must be made through a pull request.
+remote:
+remote: - Required status check "build" is expected.
+remote:
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/magadiflo/trunk-based-development-practice.git'
+```
+
+GitHub lo **rechaza**, mostrando el siguiente mensaje:
+
+```text
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - Changes must be made through a pull request.
+```
+
+Deshaz ese commit de prueba (en `main` local) usando el comando `git reset --hard origin/main`:
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* ddd219f (HEAD -> main) Intento de push directo
+* 7af7e27 (origin/main, origin/HEAD) Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git reset --hard origin/main
+HEAD is now at 7af7e27 Configurar timeout de integración
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 7af7e27 (HEAD -> main, origin/main, origin/HEAD) Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git reset --hard origin/main`: deja tu rama y tus archivos **exactamente como está `origin/main`**, descartando
+> commits y cambios locales.
+> - `git reset`: mueve la rama actual a otro commit.
+> - `--hard`: además de mover la rama, **reescribe el *staging area* y los archivos de la carpeta** para que coincidan.
+>   Los cambios sin commit se pierden.
+> - `origin/main`: el destino: la copia local de la rama `main` del remoto.
+
+> ⚠️ Úsalo aquí porque el commit de prueba nunca llegó al remoto. En otro contexto, `--hard` descarta trabajo sin
+> posibilidad de recuperarlo fácilmente.
+
+---
