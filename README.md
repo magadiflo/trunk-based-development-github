@@ -250,32 +250,58 @@ push de `dev-partner-lab` saldría como `magadiflo` sin darte ningún error: los
 quien empuja sería `magadiflo`. Con dos cuentas en el mismo dominio (`github.com`) hay que indicar el usuario de forma
 explícita.
 
-#### Indicar a GCM qué cuenta usa cada clon
+#### Indicar a GCM qué cuenta usar
 
 GCM documenta dos formas de hacerlo: poner el usuario en la URL del remoto, o configurar
-`credential.https://github.com.username`. Aquí usamos la segunda, **de forma local en cada clon**, porque encaja con la
-idea de "configurar el repositorio local":
+`credential.https://github.com.username`. Aquí usamos la segunda, pero con **alcance distinto para cada usuario**:
+
+- `magadiflo` es la cuenta que se usa normalmente en esta PC, así que se configura de forma **global**: vale para
+  cualquier repositorio de `github.com`, no solo para esta práctica.
+- `dev-partner-lab` es la excepción, así que se configura de forma **local**, solo en su clon.
 
 ```bash
-# en el clon de magadiflo
-$ git config --local credential.https://github.com.username "magadiflo"
+# magadiflo: global, se ejecuta una sola vez y desde cualquier carpeta
+$ git config --global credential.https://github.com.username "magadiflo"
 
-# en el clon de dev-partner-lab
+# dev-partner-lab: local, se ejecuta dentro de su clon
 $ git config --local credential.https://github.com.username "dev-partner-lab"
 ```
 
 > **📖 Comandos de este bloque**
 >
-> `git config --local credential.https://github.com.username "..."`: le dice a Git qué **usuario de GitHub** debe
-> pedirle a GCM al hablar con `https://github.com` desde este repositorio.
-> - `credential.https://github.com.username`: es una clave con el formato `credential.<URL>.username`. El `<URL>` (aquí
->   `https://github.com`) limita el efecto a ese sitio: para otros servidores (GitLab, etc.) no se envía ningún
+> `git config --global credential.https://github.com.username "..."`: le dice a Git qué **usuario de GitHub** debe
+> pedirle a GCM al hablar con `https://github.com`.
+> - `credential.https://github.com.username`: es una clave con el formato `credential.<URL>.username`. El `<URL>`
+>   (aquí `https://github.com`) limita el efecto a ese sitio: para otros servidores (GitLab, etc.) no se envía ningún
 >   usuario.
-> - `"dev-partner-lab"` / `"magadiflo"`: el usuario que GCM debe buscar o crear. Cada usuario tiene sus propias
+> - `--global`: guarda la configuración en el archivo `.gitconfig` de tu usuario del sistema, así que **aplica a todos
+>   los repositorios de tu PC**. (`--local`, la guarda solo dentro del repositorio actual.)
+> - `"magadiflo"` / `"dev-partner-lab"`: el usuario que GCM debe buscar o crear. Cada usuario tiene sus propias
 >   credenciales guardadas, así que **ya no se mezclan**.
 
-> Se configura la cuenta de **magadiflo** también, aunque sea la principal: cuando GCM tenga **dos** cuentas para
-> `github.com`, un clon sin usuario definido es ambiguo.
+**¿Por qué `magadiflo` va en global y no en local?** Porque en esta PC habrá **dos** cuentas guardadas para
+`github.com`. En cualquier proyecto que no tenga un usuario definido, GCM no sabrá cuál usar y te mostrará una ventana
+para elegir entre las dos, aunque ese proyecto no tenga nada que ver con esta práctica. Dejando a `magadiflo` como
+valor global, esos proyectos usarán siempre su cuenta habitual, sin preguntar.
+
+**¿Y no se pisan?** No. Git aplica primero la configuración **local** y luego la global, y la local gana. En el clon
+de `dev-partner-lab` se usa `dev-partner-lab`, y en cualquier otro repositorio, `magadiflo`.
+
+Para comprobar qué valor se aplica y de dónde viene:
+
+```bash
+$ git config --show-origin --get-regexp credential
+```
+
+- `git config --get-regexp credential`: muestra las claves cuyo nombre contiene `credential`.
+- `--show-origin`: añade al inicio de cada línea el archivo de donde sale (el `.gitconfig` global o el `config` local
+  del repositorio).
+
+> **Dos cosas a tener en cuenta:**
+> - Como el valor global aplica a **todos** los repositorios de `github.com`, si en algún otro proyecto necesitas otra
+>   cuenta, ese proyecto debe llevar su propia configuración local, igual que el clon de `dev-partner-lab`.
+> - Si la URL del remoto ya trae el usuario (`https://usuario@github.com/...`), esa URL tiene prioridad sobre las dos
+>   configuraciones.
 
 > **Alternativa equivalente:** poner el usuario en la URL,
 > `https://dev-partner-lab@github.com/magadiflo/trunk-based-development-practice.git`. Funciona igual, pero deja el
@@ -341,9 +367,6 @@ warning: You appear to have cloned an empty repository.
 
 M:\practice\magadiflo
 $ cd trunk-based-development-practice\
-
-M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
-$ git config --local credential.https://github.com.username "magadiflo"
 ```
 
 > **📖 Comandos de este bloque**
@@ -381,6 +404,75 @@ file:C:/Users/magadiflo/.gitconfig      magadiflo@gmail.com
 > - `--show-origin`: antepone la ruta del archivo de configuración. Así distingues si el valor viene de `.git/config`
 >   (local) o del `.gitconfig` global. (Sin esta opción solo verías el valor.)
 > - `user.name` / `user.email`: las claves que se consultan.
+
+
+Antes de agregar al segundo usuario falta una configuración **importante**: indicarle a GCM cuál será la cuenta por
+defecto.
+
+Ahora mismo GCM solo conoce a `magadiflo`. Cuando más adelante autentiquemos también a `dev-partner-lab`, habrá **dos**
+cuentas guardadas para `github.com`. En cualquier repositorio que no tenga un usuario definido, GCM no sabrá cuál usar
+y mostrará una ventana para elegir. Para evitarlo, dejamos a `magadiflo` como cuenta por defecto en la configuración
+**global**, que aplica a cualquier repositorio de esta PC. Es el comando que ya explicamos en
+[Indicar a GCM qué cuenta usar](#indicar-a-gcm-qué-cuenta-usar); aquí lo ejecutamos. Como es global, podemos
+ejecutarlo desde cualquier ubicación:
+
+````bash
+C:\cmder
+$ git config --global credential.https://github.com.username "magadiflo"
+
+C:\cmder
+$ git config --global --list
+core.editor="C:\Users\magadiflo\AppData\Local\Programs\Microsoft VS Code\bin\code" --wait
+filter.lfs.clean=git-lfs clean -- %f
+filter.lfs.smudge=git-lfs smudge -- %f
+filter.lfs.process=git-lfs filter-process
+filter.lfs.required=true
+user.name=Martín Díaz
+user.email=magadiflo@gmail.com
+alias.lg=log --oneline --decorate --all --graph
+alias.s=status -s -b
+credential.https://github.com.username=magadiflo
+````
+
+> **📖 Comandos de este bloque**
+>
+> `git config --global --list`: muestra **todas** las configuraciones guardadas en el archivo global.
+> - `--global`: limita la consulta al `.gitconfig` de tu usuario del sistema.
+> - `--list`: lista todas las claves con su valor (`clave=valor`), en lugar de consultar una sola.
+
+En la última línea de la salida vemos que ya quedó configurado el `credential`:
+`credential.https://github.com.username=magadiflo`.
+
+> Para consultar solo ese valor, sin la lista completa, se puede usar
+> `git config --global credential.https://github.com.username`.
+
+> **Sobre las líneas `alias.lg` y `alias.s`:** son **alias personales** que ya tenía en mi configuración global.
+> Por eso, en el resto del documento, `git lg` equivale a `git log --oneline --decorate --all --graph` y `git s`
+> equivale a `git status -s -b`. Si quieres usarlos, se crean así:
+>
+> ```bash
+> git config --global alias.lg "log --oneline --decorate --all --graph"
+> git config --global alias.s "status -s -b"
+> ```
+>
+> Si no los defines, escribe en cada caso el comando completo.
+
+**Cómo quitar esta configuración** (solo como referencia, **no lo ejecutes ahora**, porque dejaría a GCM sin usuario por
+defecto):
+
+````bash
+# quitarla de la configuración global
+$ git config --global --unset credential.https://github.com.username
+
+# quitarla de un repositorio en específico (se ejecuta dentro de ese repositorio)
+$ git config --local --unset credential.https://github.com.username
+````
+
+> **📖 Comandos de este bloque**
+>
+> `git config --unset <clave>`: elimina esa clave de la configuración.
+> - `--global` / `--local`: indica de **cuál** archivo se elimina: el global de tu usuario o el del repositorio donde
+>   estás parado.
 
 #### `[dev-partner-lab]`
 
@@ -1212,6 +1304,11 @@ problemas elegiremos `Sign in with a code` y seguimos los siguientes pasos:
 ![11.png](assets/11.png)
 
 ![12.png](assets/12.png)
+
+> **A partir de este momento GCM guarda dos cuentas** para `github.com`: `magadiflo` (la de siempre) y
+> `dev-partner-lab`. Si algún repositorio no tuviera un usuario definido, GCM no sabría cuál usar y mostraría una
+> ventana para elegir. **Por eso dejamos a `magadiflo` configurado como usuario por defecto en la configuración
+> `global`.**
 
 Una vez que nos hemos autenticado con nuestro usuario `dev-partner-lab` el comando `git push` continuará con su curso
 y subirá nuestros commits al repositorio remoto:
