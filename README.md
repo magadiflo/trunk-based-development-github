@@ -1687,3 +1687,340 @@ $ git lg
 > posibilidad de recuperarlo fácilmente.
 
 ---
+
+## Cambio #3: rama de vida corta + Pull Request (dev-partner-lab)
+
+**Un cambio algo mayor:** validación de email con pruebas. Se usa una **rama que vive pocas horas**.
+
+### Funcionalidad
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 6 (delta 2), reused 6 (delta 2), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 501 bytes | 33.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   0d0d372..7af7e27  main       -> origin/main
+Updating 0d0d372..7af7e27
+Fast-forward
+ src/main/resources/application.yml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 7af7e27 (HEAD -> main, origin/main, origin/HEAD) Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git switch -c feature/validar-email
+Switched to a new branch 'feature/validar-email'
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git switch -c feature/validar-email`: crea una rama nueva y te pasa a ella.
+> - `git switch`: cambia de rama (es la versión moderna de `git checkout` para esto).
+> - `-c` (*--create*): crea la rama antes de cambiarte, partiendo del commit en el que estás.
+> - `feature/validar-email`: el nombre de la rama nueva. Con `git switch main` (sin `-c`) solo te mueves a una rama que
+>   ya existe.
+
+Crea `src/main/java/dev/magadiflo/tbd/EmailValidator.java`:
+
+```java
+package dev.magadiflo.tbd;
+
+public class EmailValidator {
+
+    private static final String REGEX = "^[A-Za-z0-9._]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$";
+
+    public boolean esValido(String email) {
+        return email != null && email.matches(REGEX);
+    }
+
+}
+```
+
+**Commits pequeños**
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$ git add .
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$ git commit -m "Agregar EmailValidator"
+[feature/validar-email 434e044] Agregar EmailValidator
+ 1 file changed, 11 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/EmailValidator.java 
+````
+
+Y `src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java`:
+
+```java
+package dev.magadiflo.tbd;
+
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class EmailValidatorTest {
+
+    private final EmailValidator validator = new EmailValidator();
+
+    @Test
+    void aceptaEmailSimple() {
+        assertThat(this.validator.esValido("magadiflo@example.com")).isTrue();
+    }
+
+    @Test
+    void rechazaEmailSinArroba() {
+        assertThat(this.validator.esValido("magadiflo.example.com")).isFalse();
+    }
+
+    @Test
+    void rechazaEmailNulo() {
+        assertThat(this.validator.esValido(null)).isFalse();
+    }
+}
+```
+
+**Commits pequeños**
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$ git add .
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$ git commit -m "Agregar pruebas de EmailValidator"
+[feature/validar-email 55af418] Agregar pruebas de EmailValidator
+ 1 file changed, 25 insertions(+)
+ create mode 100644 src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java 
+````
+
+**Push de la rama `feature/validar-email`**
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$ git push -u origin feature/validar-email
+Enumerating objects: 28, done.
+Counting objects: 100% (28/28), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (11/11), done.
+Writing objects: 100% (18/18), 1.75 KiB | 895.00 KiB/s, done.
+Total 18 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 1 local object.
+remote:
+remote: Create a pull request for 'feature/validar-email' on GitHub by visiting:
+remote:      https://github.com/magadiflo/trunk-based-development-practice/pull/new/feature/validar-email
+remote:
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ * [new branch]      feature/validar-email -> feature/validar-email
+branch 'feature/validar-email' set up to track 'origin/feature/validar-email'.
+```
+
+### Resultado (antes de integrar)
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$ git lg
+* 55af418 (HEAD -> feature/validar-email, origin/feature/validar-email) Agregar pruebas de EmailValidator
+* 434e044 Agregar EmailValidator
+* 7af7e27 (origin/main, origin/HEAD, main) Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+### Pull Request
+
+Con `dev-partner-lab`, en GitHub (aparece un aviso amarillo *Compare & pull request*, o desde la pestaña Pull
+requests):
+
+![15.png](assets/15.png)
+
+> **Repositorio > Pull requests > New pull request**
+> - **base:** `main`
+> - **compare:** `feature/validar-email`
+> - **Título:** `Validar email al registrar usuario` *(será el mensaje del commit final)*
+
+![16.png](assets/16.png)
+
+Diferencias con el PR de GitFlow:
+
+- El destino es **`main`**, no `develop`.
+- El PR debe ser **pequeño** (idealmente se revisa en minutos).
+- Los **checks de CI** corren solos: debes ver **`build`** pasando.
+- El botón de merge está **bloqueado** hasta tener el check en verde **y** 1 aprobación.
+
+PR abierto con el check `build` y el mensaje *Review required*.
+
+![17.png](assets/17.png)
+
+### Aprobando el Pull Request
+
+Con `magadiflo` (abrimos el repositorio con la cuenta de **magadiflo** usando otro navegador):
+
+> **Pull requests > (el PR) > Files changed > Review changes > Approve > Submit review**
+
+![18.png](assets/18.png)
+
+![19.png](assets/19.png)
+
+**¿Qué se hace en *Files changed*?** Esa pestaña muestra **todos los cambios del Pull Request**: cada archivo
+modificado, con las líneas agregadas en verde y las eliminadas en rojo. Aquí es donde `magadiflo` hace la revisión:
+
+- Lee los cambios. Si algo no le convence, puede dejar un comentario en una línea concreta (con el botón **+** que
+  aparece al pasar el mouse junto al número de línea).
+- Al terminar de revisar, pulsa `Submit review` (arriba a la derecha). Se abre un formulario con tres opciones:
+    - **Comment**: deja comentarios sin aprobar ni rechazar.
+    - **Approve**: da su conformidad. Es lo que exige nuestro ruleset (1 aprobación).
+    - **Request changes**: pide cambios antes de poder fusionar.
+- Para que la opción elegida quede registrada, pulsa `Submit review`.
+
+Como el autor de un PR **no puede aprobar su propio Pull Request**, la aprobación la da la otra cuenta: aquí, el PR es
+de `dev-partner-lab` y lo aprueba `magadiflo`.
+
+> **Una buena revisión en TBD es corta:** como los PR son pequeños, revisarlos toma minutos, no horas. Esa es una de
+> las razones para mantenerlos pequeños.
+
+> Luego, en la pestaña *Conversation*: **Squash and merge > Confirm squash and merge**
+
+![20.png](assets/20.png)
+
+![21.png](assets/21.png)
+
+PR en estado *Merged* con la rama borrada.
+
+![22.png](assets/22.png)
+
+![23.png](assets/23.png)
+
+Los 2 commits de `dev-partner-lab` se convierten en **un solo commit** en `main`, y la rama remota se borra sola.
+
+![24.png](assets/24.png)
+
+### Limpiar en local
+
+La rama remota ya no existe, pero **la local sí**. Se actualiza `main`, se limpian referencias remotas y se borra la
+rama local:
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/validar-email)
+$ git switch main
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 55af418 (origin/feature/validar-email, feature/validar-email) Agregar pruebas de EmailValidator
+* 434e044 Agregar EmailValidator
+* 7af7e27 (HEAD -> main, origin/main, origin/HEAD) Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 25, done.
+remote: Counting objects: 100% (25/25), done.
+remote: Compressing objects: 100% (7/7), done.
+remote: Total 15 (delta 1), reused 14 (delta 1), pack-reused 0 (from 0)
+Unpacking objects: 100% (15/15), 2.08 KiB | 236.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   7af7e27..c80e8ef  main       -> origin/main
+Updating 7af7e27..c80e8ef
+Fast-forward
+ .../java/dev/magadiflo/tbd/EmailValidator.java     | 11 ++++++++++
+ .../java/dev/magadiflo/tbd/EmailValidatorTest.java | 25 ++++++++++++++++++++++
+ 2 files changed, 36 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/EmailValidator.java
+ create mode 100644 src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java 
+````
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git fetch --prune
+From https://github.com/magadiflo/trunk-based-development-practice
+ - [deleted]         (none)     -> origin/feature/validar-email 
+````
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git branch -D feature/validar-email
+Deleted branch feature/validar-email (was 55af418).
+```
+
+> **📖 Comandos de este bloque**
+>
+> **`git fetch --prune`**: descarga las novedades del remoto y limpia las referencias a ramas que ya no existen allá.
+> - `git fetch`: descarga lo nuevo del remoto **sin integrarlo** en tu rama (a diferencia de `git pull`, que descarga e
+>   integra).
+> - `--prune`: elimina de tu copia local las ramas remotas (`origin/...`) que ya fueron borradas en GitHub. Por eso
+>   aparece `- [deleted] ... -> origin/feature/validar-email`.
+>
+> **`git branch -d feature/validar-email`**: borra la rama **local**, solo si Git la considera ya integrada.
+> - `git branch`: administra ramas (sin argumentos, las lista).
+> - `-d` (*--delete*): borrado seguro; se niega si la rama tiene commits que no están en otra rama.
+> - `-D` (mayúscula, *--delete --force*): borrado forzado; lo borra aunque Git no la vea integrada.
+
+> **Detalle importante:** `git branch -d` **falla** después de un *Squash and merge*, porque Git no ve la rama como
+> fusionada (el commit del squash es distinto a los originales). Es normal. Como ya está integrado, se borra con `-D`.
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* c80e8ef (HEAD -> main, origin/main, origin/HEAD) Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+El historial de `main` sigue siendo una **línea recta**: un commit por PR, con el número `(#1)` que agrega GitHub al
+título.
+
+`magadiflo` también actualiza su `main` con `git pull --rebase`.
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+remote: Enumerating objects: 25, done.
+remote: Counting objects: 100% (25/25), done.
+remote: Compressing objects: 100% (7/7), done.
+remote: Total 15 (delta 1), reused 14 (delta 1), pack-reused 0 (from 0)
+Unpacking objects: 100% (15/15), 2.08 KiB | 82.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   7af7e27..c80e8ef  main       -> origin/main
+Updating 7af7e27..c80e8ef
+Fast-forward
+ src/main/java/dev/magadiflo/tbd/EmailValidator.java     | 11 +++++++++++
+ src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java | 25 +++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/EmailValidator.java
+ create mode 100644 src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* c80e8ef (HEAD -> main, origin/main, origin/HEAD) Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+---
