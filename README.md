@@ -2220,3 +2220,456 @@ Recuerda que el PR sigue abierto y aprobado, y se fusionará al inicio del `Camb
 > sección [Feature flags en Spring Boot](#feature-flags-en-spring-boot).
 
 ---
+
+## Cambio #5: dos PR en paralelo, el segundo entra en conflicto (dev-partner-lab)
+
+Mientras el PR del `Cambio #4` espera su integración, `dev-partner-lab` empieza otro cambio **desde el mismo `main`**.
+Los dos tocan el final de `application.yml`.
+
+### Funcionalidad
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 29, done.
+remote: Counting objects: 100% (29/29), done.
+remote: Compressing objects: 100% (6/6), done.
+remote: Total 17 (delta 3), reused 17 (delta 3), pack-reused 0 (from 0)
+Unpacking objects: 100% (17/17), 1.71 KiB | 52.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+ * [new branch]      feature/nuevo-checkout -> origin/feature/nuevo-checkout
+Already up to date.
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 59a7718 (origin/feature/nuevo-checkout) Agregar nuevo checkout detrás del flag feature.nuevo-checkout.enabed (apagado)
+* c80e8ef (HEAD -> main, origin/main, origin/HEAD) Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git switch -c feature/configurar-reintentos
+Switched to a new branch 'feature/configurar-reintentos'
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$
+````
+
+`application.yml`
+
+````yml
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+  cache:
+    ttl: 60s
+  timeout: 5s
+  retry:
+    max-attempts: 3
+````
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git add .
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git commit -m "Configurar reintentos de integración"
+[feature/configurar-reintentos bf22b9e] Configurar reintentos de integración
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git push -u origin feature/configurar-reintentos
+Enumerating objects: 11, done.
+Counting objects: 100% (11/11), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (5/5), done.
+Writing objects: 100% (6/6), 540 bytes | 540.00 KiB/s, done.
+Total 6 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+remote:
+remote: Create a pull request for 'feature/configurar-reintentos' on GitHub by visiting:
+remote:      https://github.com/magadiflo/trunk-based-development-practice/pull/new/feature/configurar-reintentos
+remote:
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ * [new branch]      feature/configurar-reintentos -> feature/configurar-reintentos
+branch 'feature/configurar-reintentos' set up to track 'origin/feature/configurar-reintentos'.
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git lg
+* bf22b9e (HEAD -> feature/configurar-reintentos, origin/feature/configurar-reintentos) Configurar reintentos de integración
+| * 59a7718 (origin/feature/nuevo-checkout) Agregar nuevo checkout detrás del flag feature.nuevo-checkout.enabed (apagado)
+|/
+* c80e8ef (origin/main, origin/HEAD, main) Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+Ahora `dev-partner-lab` abre su Pull Request en GitHub (**base:** `main`, **compare:** `feature/configurar-reintentos`)
+y lo **deja abierto**.
+
+![29.png](assets/29.png)
+
+![30.png](assets/30.png)
+
+En este momento hay **dos PR abiertos a la vez**:
+
+| PR                                                   | Autor             | Estado                          |
+|------------------------------------------------------|-------------------|---------------------------------|
+| El del `Cambio #4` (`feature/nuevo-checkout`)        | `magadiflo`       | Aprobado, pendiente de fusionar |
+| El del `Cambio #5` (`feature/configurar-reintentos`) | `dev-partner-lab` | Recién abierto                  |
+
+![31.png](assets/31.png)
+
+Ambas ramas nacieron del **mismo `main`** y tocan el final del mismo archivo. Ahora fusionamos primero el PR del
+`Cambio #4`: en su pestaña *Conversation* pulsamos **Squash and merge > Confirm squash and merge**. Esto ocurre en
+GitHub; los clones locales no se tocan todavía.
+
+![32.png](assets/32.png)
+
+![33.png](assets/33.png)
+
+Con ese merge, `main` avanza, pero la rama de `dev-partner-lab` sigue partiendo del `main` anterior. Al volver al PR
+del `Cambio #5`, GitHub avisa que **hay conflicto** (*This branch has conflicts that must be resolved*) y deshabilita
+el botón de merge. GitHub puede tardar unos segundos en detectarlo; si no aparece, recarga la página.
+
+![34.png](assets/34.png)
+
+`magadiflo` actualiza su copia y limpia:
+
+`[magadiflo]`
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (feature/nuevo-checkout -> origin)
+$ git switch main
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+remote: Enumerating objects: 35, done.
+remote: Counting objects: 100% (35/35), done.
+remote: Compressing objects: 100% (9/9), done.
+remote: Total 23 (delta 5), reused 22 (delta 5), pack-reused 0 (from 0)
+Unpacking objects: 100% (23/23), 2.84 KiB | 161.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   c80e8ef..3c260c4  main                          -> origin/main
+ * [new branch]      feature/configurar-reintentos -> origin/feature/configurar-reintentos
+Updating c80e8ef..3c260c4
+Fast-forward
+ src/main/java/dev/magadiflo/tbd/CheckoutService.java     | 29 +++++++++++++++++++++++++++++
+ src/main/resources/application.yml                       |  3 +++
+ src/test/java/dev/magadiflo/tbd/CheckoutServiceTest.java | 19 +++++++++++++++++++
+ 3 files changed, 51 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/CheckoutService.java
+ create mode 100644 src/test/java/dev/magadiflo/tbd/CheckoutServiceTest.java
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 3c260c4 (HEAD -> main, origin/main, origin/HEAD) Nuevo checkout detrás de feature flag (#3)
+| * bf22b9e (origin/feature/configurar-reintentos) Configurar reintentos de integración
+|/
+| * 59a7718 (origin/feature/nuevo-checkout, feature/nuevo-checkout) Agregar nuevo checkout detrás del flag feature.nuevo-checkout.enabed (apagado)
+|/
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git fetch --prune
+From https://github.com/magadiflo/trunk-based-development-practice
+ - [deleted]         (none)     -> origin/feature/nuevo-checkout
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 3c260c4 (HEAD -> main, origin/main, origin/HEAD) Nuevo checkout detrás de feature flag (#3)
+| * bf22b9e (origin/feature/configurar-reintentos) Configurar reintentos de integración
+|/
+| * 59a7718 (feature/nuevo-checkout) Agregar nuevo checkout detrás del flag feature.nuevo-checkout.enabed (apagado)
+|/
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git branch -D feature/nuevo-checkout
+Deleted branch feature/nuevo-checkout (was 59a7718).
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 3c260c4 (HEAD -> main, origin/main, origin/HEAD) Nuevo checkout detrás de feature flag (#3)
+| * bf22b9e (origin/feature/configurar-reintentos) Configurar reintentos de integración
+|/
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+### Resolver el conflicto: `rebase` sobre `main`
+
+GitHub ofrece un botón *Resolve conflicts* (editor web), pero en TBD se prefiere **rebasar en local**: así el historial
+sigue lineal y pruebas el resultado antes de subirlo.
+
+`[dev-partner-lab]`
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git fetch origin
+remote: Enumerating objects: 29, done.
+remote: Counting objects: 100% (29/29), done.
+remote: Compressing objects: 100% (6/6), done.
+remote: Total 17 (delta 3), reused 16 (delta 3), pack-reused 0 (from 0)
+Unpacking objects: 100% (17/17), 2.34 KiB | 266.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   c80e8ef..3c260c4  main       -> origin/main
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git rebase origin/main
+Auto-merging src/main/resources/application.yml
+CONFLICT (content): Merge conflict in src/main/resources/application.yml
+error: could not apply bf22b9e... Configurar reintentos de integración
+hint: Resolve all conflicts manually, mark them as resolved with
+hint: "git add/rm <conflicted_files>", then run "git rebase --continue".
+hint: You can instead skip this commit: run "git rebase --skip".
+hint: To abort and get back to the state before "git rebase", run "git rebase --abort".
+hint: Disable this message with "git config set advice.mergeConflict false"
+Could not apply bf22b9e... # Configurar reintentos de integración
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git fetch origin`: igual que `git fetch --prune`, pero **indicando explícitamente el remoto** (`origin`) y sin
+> limpiar ramas. Solo descarga; no toca tus archivos ni tu rama.
+>
+> `git rebase origin/main`: reubica los commits de tu rama encima de lo último de `main`.
+> - `git rebase`: ya se explicó con `--continue`; aquí se usa para **empezar** el rebase.
+> - `origin/main`: la nueva "base": tu rama se reescribe como si hubiera nacido del `main` más reciente. Si los mismos
+>   archivos cambiaron en ambos lados, aparece un conflicto.
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos|REBASE 1/1)
+$ git s
+## HEAD (no branch)
+UU src/main/resources/application.yml
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos|REBASE 1/1)
+$ git diff *application.yml
+diff --cc src/main/resources/application.yml
+index ec96ff8,e538255..0000000
+--- a/src/main/resources/application.yml
++++ b/src/main/resources/application.yml
+@@@ -6,7 -6,5 +6,12 @@@ app
+    cache:
+      ttl: 60s
+    timeout: 5s
+++<<<<<<< HEAD
+ +
+ +feature:
+ +  nuevo-checkout:
+ +    enabled: false
+++=======
++   retry:
++     max-attempts: 3
+++>>>>>>> bf22b9e (Configurar reintentos de integración)
+```
+
+Se conservan **ambas líneas** `src/main/resources/application.yml`:
+
+```yml
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+  cache:
+    ttl: 60s
+  timeout: 5s
+
+feature:
+  nuevo-checkout:
+    enabled: false
+  retry:
+    max-attempts: 3
+```
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos|REBASE 1/1)
+$ git add src/main/resources/application.yml
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos|REBASE 1/1)
+$ git rebase --continue
+[detached HEAD c9fc1e3] Configurar reintentos de integración
+ 1 file changed, 2 insertions(+)
+Successfully rebased and updated refs/heads/feature/configurar-reintentos.
+```
+
+### Subir una rama reescrita: `--force-with-lease`
+
+El rebase **reescribió** el commit (`0c4eeb1` → `ddd4095`), así que un `push` normal es rechazado:
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git push
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ ! [rejected]        feature/configurar-reintentos -> feature/configurar-reintentos (non-fast-forward)
+error: failed to push some refs to 'https://github.com/magadiflo/trunk-based-development-practice.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+```
+
+Se sube con **`--force-with-lease`**:
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git push --force-with-lease
+Enumerating objects: 11, done.
+Counting objects: 100% (11/11), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (5/5), done.
+Writing objects: 100% (6/6), 548 bytes | 548.00 KiB/s, done.
+Total 6 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ + bf22b9e...c9fc1e3 feature/configurar-reintentos -> feature/configurar-reintentos (forced update)
+
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git push --force-with-lease`: sobrescribe la rama remota con tu versión reescrita, **pero solo si nadie más la
+> cambió** desde la última vez que la descargaste.
+> - `git push`: ya explicado.
+> - `--force-with-lease`: es un "forzar con seguro". Un `--force` normal pisa lo que haya en el remoto sin preguntar;
+>   con `--with-lease`, si el remoto tiene algo que tú no conoces, Git **se niega** en vez de borrar el trabajo ajeno.
+> - En la salida, el `+` y `(forced update)` indican que la rama remota fue reemplazada.
+
+> Es válido aquí porque se trata de **tu rama de vida corta**, **nunca** de `main` (el ruleset lo bloquea).
+
+El PR se actualiza solo, el conflicto desaparece y la CI corre de nuevo. `magadiflo` lo aprueba y se hace **Squash and
+merge**.
+
+![35.png](assets/35.png)
+
+![36.png](assets/36.png)
+
+![37.png](assets/37.png)
+
+Luego:
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (feature/configurar-reintentos)
+$ git switch main
+Switched to branch 'main'
+Your branch is behind 'origin/main' by 1 commit, and can be fast-forwarded.
+  (use "git pull" to update your local branch)
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 6 (delta 2), reused 5 (delta 2), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 1.16 KiB | 396.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   3c260c4..3402a0b  main       -> origin/main
+Updating c80e8ef..3402a0b
+Fast-forward
+ .../java/dev/magadiflo/tbd/CheckoutService.java    | 29 ++++++++++++++++++++++
+ src/main/resources/application.yml                 |  5 ++++
+ .../dev/magadiflo/tbd/CheckoutServiceTest.java     | 19 ++++++++++++++
+ 3 files changed, 53 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/CheckoutService.java
+ create mode 100644 src/test/java/dev/magadiflo/tbd/CheckoutServiceTest.java
+ 
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git fetch --prune
+From https://github.com/magadiflo/trunk-based-development-practice
+ - [deleted]         (none)     -> origin/feature/configurar-reintentos
+ - [deleted]         (none)     -> origin/feature/nuevo-checkout
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git branch -D feature/configurar-reintentos
+Deleted branch feature/configurar-reintentos (was c9fc1e3).
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 3402a0b (HEAD -> main, origin/main, origin/HEAD) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+**Lección:** el conflicto de dos PR en paralelo **lo resuelve quien llega segundo**, antes de integrar. Con PR pequeños
+que viven horas, es raro y barato.
+
+`[magadiflo]`
+
+**magadiflo** también actualiza su copia. Su clon todavía no conoce el último merge, y sigue recordando la rama
+`feature/configurar-reintentos`, que GitHub borró al fusionar:
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 3c260c4 (HEAD -> main, origin/main, origin/HEAD) Nuevo checkout detrás de feature flag (#3)
+| * bf22b9e (origin/feature/configurar-reintentos) Configurar reintentos de integración
+|/
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit 
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 6 (delta 2), reused 5 (delta 2), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 1.16 KiB | 99.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   3c260c4..3402a0b  main       -> origin/main
+Updating 3c260c4..3402a0b
+Fast-forward
+ src/main/resources/application.yml | 2 ++
+ 1 file changed, 2 insertions(+)
+ 
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git fetch --prune
+From https://github.com/magadiflo/trunk-based-development-practice
+ - [deleted]         (none)     -> origin/feature/configurar-reintentos
+ 
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 3402a0b (HEAD -> main, origin/main, origin/HEAD) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+> Mientras no hacemos `fetch`, nuestro clon solo conoce el remoto **hasta la última vez que lo consultamos**. Por eso
+> el historial de `magadiflo` se veía bifurcado: no era una bifurcación real, sino referencias remotas desactualizadas.
+
+---
