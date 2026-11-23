@@ -2673,3 +2673,105 @@ $ git lg
 > el historial de `magadiflo` se veía bifurcado: no era una bifurcación real, sino referencias remotas desactualizadas.
 
 ---
+
+## Cambio #6: preparar la versión 1.0 con una release branch corta (magadiflo)
+
+TBD **no obliga** a usar release branches (con despliegue continuo se despliega `main` y listo). Pero cuando se
+necesita una "foto" estable de producción, se corta una rama **desde `main`**, sin pasar por `develop`.
+
+### Funcionalidad
+
+`[magadiflo]`
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+Already up to date.
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git switch -c release/1.0
+Switched to a new branch 'release/1.0'
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0)
+$ git push -u origin release/1.0
+Total 0 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+remote:
+remote: Create a pull request for 'release/1.0' on GitHub by visiting:
+remote:      https://github.com/magadiflo/trunk-based-development-practice/pull/new/release/1.0
+remote:
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ * [new branch]      release/1.0 -> release/1.0
+branch 'release/1.0' set up to track 'origin/release/1.0'.
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git tag -a v1.0.0 -m "Versión 1.0.0"
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git push origin v1.0.0
+Enumerating objects: 1, done.
+Counting objects: 100% (1/1), done.
+Writing objects: 100% (1/1), 174 bytes | 174.00 KiB/s, done.
+Total 1 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ * [new tag]         v1.0.0 -> v1.0.0
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git switch main
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 3402a0b (HEAD -> main, tag: v1.0.0, origin/release/1.0, origin/main, origin/HEAD, release/1.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+> **📖 Comandos de este bloque**
+>
+> `git tag -a v1.0.0 -m "Versión 1.0.0"`: pone una etiqueta con nombre y mensaje en el commit actual (una "marca" de
+> versión que no se mueve).
+> - `git tag`: administra etiquetas.
+> - `-a` (*--annotate*): crea una etiqueta **anotada**, que guarda autor, fecha y mensaje (la recomendada para
+>   versiones).
+> - `v1.0.0`: el nombre de la etiqueta.
+> - `-m "Versión 1.0.0"`: el mensaje de la etiqueta.
+>
+> `git push origin v1.0.0`: sube **esa etiqueta** al remoto.
+> - Un `git push` normal **no** sube las etiquetas; hay que enviarlas por su nombre.
+> - `origin`: el remoto; `v1.0.0`: la etiqueta a subir.
+
+`[dev-partner-lab]` se entera al hacer `pull`:
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 1, done.
+remote: Counting objects: 100% (1/1), done.
+remote: Total 1 (delta 0), reused 1 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (1/1), 154 bytes | 154.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+ * [new branch]      release/1.0 -> origin/release/1.0
+ * [new tag]         v1.0.0      -> v1.0.0
+Already up to date.
+```
+
+> **Opcional, en GitHub:** crear un *Release* sobre el tag: **Releases > Draft a new release > Choose a tag: `v1.0.0` >
+> Generate release notes > Publish**.
+
+![38.png](assets/38.png)
+
+![39.png](assets/39.png)
+
+![40.png](assets/40.png)
+
+> `release/1.0` no tiene commits propios: es un puntero estable al mismo commit que `v1.0.0` y `main` (`3402a0b`).
+> Además la rama **no está protegida** por el ruleset (que solo apunta a `main`); en un equipo real convendría
+> protegerla también (`release/*`).
+
+---
+
