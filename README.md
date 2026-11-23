@@ -2024,3 +2024,199 @@ $ git lg
 ````
 
 ---
+
+## Cambio #4: funcionalidad incompleta detrás de un feature flag (magadiflo)
+
+**magadiflo** debe construir un **nuevo checkout** que tomará varios días. En vez de abrir una rama larga, **integra el
+esqueleto hoy mismo, apagado**.
+
+### Funcionalidad
+
+`[magadiflo]`
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+Already up to date. 
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git switch -c feature/nuevo-checkout
+Switched to a new branch 'feature/nuevo-checkout'
+
+M:\practice\magadiflo\trunk-based-development-practice (feature/nuevo-checkout)
+$
+````
+
+Crea `src/main/java/dev/magadiflo/tbd/CheckoutService.java`:
+
+```java
+package dev.magadiflo.tbd;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+@Service
+public class CheckoutService {
+
+    private final boolean nuevoCheckoutHabilitado;
+
+    public CheckoutService(@Value("${feature.nuevo-checkout.enabled:false}") boolean nuevoCheckoutHabilitado) {
+        this.nuevoCheckoutHabilitado = nuevoCheckoutHabilitado;
+    }
+
+    public String procesar() {
+        if (this.nuevoCheckoutHabilitado) {
+            return this.procesarConNuevoFlujo(); // en construcción
+        }
+        return this.procesarConFlujoActual();    // lo que ve producción hoy
+    }
+
+    private String procesarConFlujoActual() {
+        return "checkout-actual";
+    }
+
+    private String procesarConNuevoFlujo() {
+        return "checkout-nuevo (incompleto)";
+    }
+}
+```
+
+> La **inyección por constructor** permite probar ambos caminos sin levantar Spring.
+
+`src/test/java/dev/magadiflo/tbd/CheckoutServiceTest.java` (se prueban **los dos caminos**):
+
+```java
+package dev.magadiflo.tbd;
+
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class CheckoutServiceTest {
+
+    @Test
+    void conFlagApagadoUsaElFlujoActual() {
+        assertThat(new CheckoutService(false).procesar())
+                .isEqualTo("checkout-actual");
+    }
+
+    @Test
+    void conFlagEncendidoUsaElNuevoFlujo() {
+        assertThat(new CheckoutService(true).procesar())
+                .isEqualTo("checkout-nuevo (incompleto)");
+    }
+}
+```
+
+Y el flag, **apagado**, al final de `application.yml`:
+
+```yml
+spring:
+  application:
+    name: trunk-based-development-practice
+
+app:
+  cache:
+    ttl: 60s
+  timeout: 5s
+
+feature:
+  nuevo-checkout:
+    enabled: false
+```
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (feature/nuevo-checkout)
+$ git add .
+
+M:\practice\magadiflo\trunk-based-development-practice (feature/nuevo-checkout)
+$ git commit -m "Agregar nuevo checkout detrás del flag feature.nuevo-checkout.enabed (apagado)"[feature/nuevo-checkout 59a7718] Agregar nuevo checkout detrás del flag feature.nuevo-checkout.enabed (apagado)
+ 3 files changed, 51 insertions(+)
+ create mode 100644 src/main/java/dev/magadiflo/tbd/CheckoutService.java
+ create mode 100644 src/test/java/dev/magadiflo/tbd/CheckoutServiceTest.java
+
+M:\practice\magadiflo\trunk-based-development-practice (feature/nuevo-checkout)
+$ git push -u origin feature/nuevo-checkout
+Enumerating objects: 29, done.
+Counting objects: 100% (29/29), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (9/9), done.
+Writing objects: 100% (17/17), 1.73 KiB | 589.00 KiB/s, done.
+Total 17 (delta 3), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (3/3), completed with 3 local objects.
+remote:
+remote: Create a pull request for 'feature/nuevo-checkout' on GitHub by visiting:
+remote:      https://github.com/magadiflo/trunk-based-development-practice/pull/new/feature/nuevo-checkout
+remote:
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ * [new branch]      feature/nuevo-checkout -> feature/nuevo-checkout
+branch 'feature/nuevo-checkout' set up to track 'origin/feature/nuevo-checkout'.
+````
+
+`magadiflo` abre el PR:
+
+- **base:** `main`
+- **compare:** `feature/nuevo-checkout`
+- **título:** `Nuevo checkout detrás de feature flag`
+
+![25.png](assets/25.png)
+
+Una vez que hemos dado clic en el botón `Create pull request` veremos otra pantalla donde veremos:
+
+- `Review required`
+- `All checks have passed`
+- `CI / build (pull_request)`
+- `GitGuardian Security Checks`
+- `Merging is blocked`
+
+También veremos el título que le pusimos, seguido del número del PR: `Nuevo checkout detrás de feature flag #3`.
+Aquí nos vamos a detener un segundo para explicar el número `#3` que está saliendo, porque a primera vista parece que
+nos saltamos uno.
+
+**¿Cómo numera GitHub los Pull Requests?** Cada repositorio tiene un **único contador** que comparten los Pull Requests
+y los *issues*. Cada vez que se crea uno de los dos, recibe el siguiente número, y ese número **nunca se reutiliza**,
+aunque el PR se cierre o se fusione. Es solo un identificador: no afecta en nada al funcionamiento.
+
+**¿Por qué es el `#3` y no el `#2`?** Hasta ahora solo habíamos creado un PR en el repositorio: el del `Cambio #3`
+(*Validar email al registrar usuario*), que recibió el `#1`. El siguiente debería haber sido el `#2`, pero en nuestra
+práctica ese número ya está ocupado: hicimos unas pruebas en las que fusionamos el PR antes de tiempo con *Squash and
+merge* y, por lo tanto, tuvimos que devolver `main` al estado anterior para rehacerlo. El PR `#2`
+fusionado **sigue existiendo en GitHub** y no se puede reabrir ni deshacer desde la interfaz, así que el contador ya
+había avanzado.
+
+> **Si sigues esta práctica desde cero**, tu PR saldrá con el número `#2`, y los siguientes tendrán un número menos que
+> los que se muestran en las capturas de este documento. Los commits que genere *Squash and merge* llevarán ese número
+> entre paréntesis (por ejemplo, `Nuevo checkout detrás de feature flag (#3)`), así que también variará ahí.
+
+Dicho de otro modo: lo que importa es que cada número **identifica de forma única** a un PR, no que sean consecutivos.
+
+![26.png](assets/26.png)
+
+> `dev-partner-lab` lo revisa y lo aprueba (igual que en el `Cambio #3`), pero **todavía no hagas el *Squash and
+> merge***: el PR se queda abierto y aprobado. Primero pasa al `Cambio #5`, donde lo fusionaremos en el momento justo
+> para ver cómo reacciona un segundo PR abierto en paralelo.
+
+Entonces, lo que sigue es:
+
+- `dev-partner-lab` revisa y aprueba el PR en GitHub (*Files changed → Review changes → Approve → Submit review*).
+
+![27.png](assets/27.png)
+
+- El PR **queda abierto y aprobado**, pero **sin hacer *Squash and merge*** todavía.
+
+![28.png](assets/28.png)
+
+### Qué logrará este cambio cuando se integre
+
+Recuerda que el PR sigue abierto y aprobado, y se fusionará al inicio del `Cambio #5`. Cuando eso ocurra:
+
+- El código del nuevo checkout **estará en `main` (y podría llegar a producción)**, pero con
+  `feature.nuevo-checkout.enabled=false` nadie lo verá.
+- En los días siguientes se agregarán **pedazos pequeños** (nuevos PR) sobre el mismo flag. Cuando esté completo se
+  encenderá, y más adelante se **eliminará el flag** y el código viejo.
+- Ningún cambio debería vivir más de unas horas fuera de `main`.
+
+> Más sobre feature flags (`@ConditionalOnProperty`, Togglz, FF4J, Unleash) en la
+> sección [Feature flags en Spring Boot](#feature-flags-en-spring-boot).
+
+---
