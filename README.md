@@ -2775,3 +2775,791 @@ Already up to date.
 
 ---
 
+## Cambio #7: bug en producción: PR con el fix en `main` + `cherry-pick` a la release
+
+Se detecta en producción (`v1.0.0`) que el email `ana+test@example.com` es rechazado: la expresión regular de
+`EmailValidator` no permite el carácter `+`.
+
+### Punto de partida
+
+Es el estado con el que terminó el `Cambio #6`:
+
+- `main`, `release/1.0` y el tag `v1.0.0` apuntan al mismo commit: `3402a0b`.
+- `magadiflo` tiene `release/1.0` como rama local (la creó él).
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 3402a0b (HEAD -> main, tag: v1.0.0, origin/release/1.0, origin/main, origin/HEAD, release/1.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+- `dev-partner-lab` solo conoce `origin/release/1.0`:
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 3402a0b (HEAD -> main, tag: v1.0.0, origin/release/1.0, origin/main, origin/HEAD) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+### Quién hace qué
+
+Cada bloque lleva la marca `[magadiflo]` o `[dev-partner-lab]` para saber desde qué clon se ejecuta.
+
+| Paso   | Quién                               | Qué hace                                                                                         |
+|--------|-------------------------------------|--------------------------------------------------------------------------------------------------|
+| 1 a 4  | `[dev-partner-lab]`                 | Crea la rama del arreglo, escribe la prueba que reproduce el bug, corrige el código y abre el PR |
+| 5      | `[magadiflo]`                       | Revisa y aprueba el PR                                                                           |
+| 6      | `[dev-partner-lab]`                 | Como autor, hace el *Squash and merge*                                                           |
+| 7      | Ambos                               | Actualizan su `main`                                                                             |
+| 8      | `[magadiflo]`                       | Lleva el arreglo a la release con `cherry-pick` y publica `v1.0.1`                               |
+| 9      | `[dev-partner-lab]`                 | Sincroniza su clon                                                                               |
+| Cierre | `[magadiflo]` y `[dev-partner-lab]` | Borran la release cuando ya no se necesita                                                       |
+
+### ¿Por qué se hace así?
+
+**Regla de oro en TBD: el arreglo se hace primero en `main`.** Si se arreglara solo en la release, la siguiente
+versión (creada desde `main`) volvería a traer el bug. Como `main` está protegida, el arreglo entra por un Pull
+Request.
+
+**¿Por qué `cherry-pick` y no fusionar `main` en la release?** Porque `main` ya tiene cosas que **no están en
+producción** (en nuestra práctica, el nuevo checkout y los reintentos). Fusionar `main` en la release las arrastraría a
+una versión que ya está desplegada y validada. El `cherry-pick` copia **solo el commit del arreglo**. Gracias al *Squash
+and merge*, ese arreglo es **un único commit** en `main`, así que es fácil de copiar.
+
+Este es el esquema habitual en entornos donde producción corre una versión certificada, con aprobaciones formales:
+la corrección debe cambiar lo mínimo sobre lo ya validado y dejar trazabilidad (`v1.0.1`, y de dónde vino cada
+commit).
+
+### Funcionalidad: primero en `main`, con una prueba que reproduce el bug
+
+#### Paso 1: crear la rama del arreglo
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+Already up to date.
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git switch -c fix/email-con-signo-mas
+Switched to a new branch 'fix/email-con-signo-mas'
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git lg
+* 3402a0b (HEAD -> fix/email-con-signo-mas, tag: v1.0.0, origin/release/1.0, origin/main, origin/HEAD, main) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit 
+````
+
+- `git pull --rebase`: nos aseguramos de partir del `main` más reciente. Debe responder `Already up to date.`
+- `git switch -c fix/email-con-signo-mas`: crea la rama y se cambia a ella. El prefijo `fix/` indica que es una
+  corrección.
+
+#### Paso 2: la prueba que reproduce el bug
+
+**Primero la prueba, antes de tocar el código.** Se agrega este método a `EmailValidatorTest`:
+
+```java
+@Test
+void aceptaEmailConSignoMas() {
+    assertThat(this.validator.esValido("ana+test@example.com")).isTrue();
+}
+```
+
+Con el código actual la prueba **debe fallar**. Así comprobamos que realmente reproduce el bug:
+
+`[dev-partner-lab]`
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ ./mvnw test
+...
+[INFO]
+[INFO] Results:
+[INFO]
+[ERROR] Failures:
+[ERROR]   EmailValidatorTest.aceptaEmailConSignoMas:28
+Expecting value to be true but was false
+[INFO]
+[ERROR] Tests run: 8, Failures: 1, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[ERROR] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  6.609 s
+[INFO] Finished at: 2026-11-24T17:06:26-05:00
+[INFO] ------------------------------------------------------------------------
+```
+
+Usamos `test` porque aquí solo queremos el ciclo rápido de probar. Se hace commit de la prueba:
+
+`[dev-partner-lab]`
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git s
+## fix/email-con-signo-mas
+ M src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git add .
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git commit -m "Agregar prueba que reproduce el bug del signo +"
+[fix/email-con-signo-mas 6d9a6c5] Agregar prueba que reproduce el bug del signo +
+ 1 file changed, 5 insertions(+)
+```
+
+#### Paso 3: corregir el código
+
+En `EmailValidator.java` se agrega `+` a los caracteres permitidos antes de la `@`:
+
+```java
+// antes:  ^[A-Za-z0-9._]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$
+// ahora:
+private static final String REGEX = "^[A-Za-z0-9._+]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$";
+```
+
+Esta vez, antes de subir, corremos la verificación completa (la misma que usará el CI):
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ ./mvnw verify
+...
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  10.538 s
+[INFO] Finished at: 2026-11-24T17:11:18-05:00
+[INFO] ------------------------------------------------------------------------
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git add .
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git commit -m "Permitir + en la parte local del email"
+[fix/email-con-signo-mas 43339e7] Permitir + en la parte local del email
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+````
+
+La salida debe terminar en `BUILD SUCCESS`, con todas las pruebas en verde (la nueva incluida).
+
+#### Paso 4: subir la rama y abrir el PR
+
+`[dev-partner-lab]`
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git push -u origin fix/email-con-signo-mas
+Enumerating objects: 30, done.
+Counting objects: 100% (30/30), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (11/11), done.
+Writing objects: 100% (18/18), 1.38 KiB | 705.00 KiB/s, done.
+Total 18 (delta 5), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (5/5), completed with 4 local objects.
+remote:
+remote: Create a pull request for 'fix/email-con-signo-mas' on GitHub by visiting:
+remote:      https://github.com/magadiflo/trunk-based-development-practice/pull/new/fix/email-con-signo-mas
+remote:
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ * [new branch]      fix/email-con-signo-mas -> fix/email-con-signo-mas
+branch 'fix/email-con-signo-mas' set up to track 'origin/fix/email-con-signo-mas'.
+```
+
+En GitHub se abre el Pull Request:
+
+- **base:** `main`
+- **compare:** `fix/email-con-signo-mas`
+- **título:** `Corregir: permitir + en el email`
+
+![41.png](assets/41.png)
+
+El check `build` se ejecutará (aparecerá como `CI / build (pull_request)`). Recuerda que el número del PR puede no
+ser el que esperas (ver la nota del `Cambio #4`); en nuestra práctica será el `#6`.
+
+![42.png](assets/42.png)
+
+Aunque la rama tiene dos commits (la prueba y el arreglo), al hacer *Squash and merge* quedarán como **uno solo** en
+`main`.
+
+#### Paso 5: aprobar el PR
+
+`[magadiflo]`
+
+En GitHub: **Pull requests > (el PR) > Files changed > Review changes > Approve > Submit review**.
+
+![43.png](assets/43.png)
+
+#### Paso 6: fusionar el PR
+
+`[dev-partner-lab]`
+
+Con el PR aprobado y el check `build` en verde, el autor lo fusiona en la pestaña *Conversation*:
+**Squash and merge > Confirm squash and merge**. GitHub borra la rama remota automáticamente.
+
+> Cualquier cuenta con permiso de escritura puede pulsar el botón. Lo habitual es que lo haga el autor del PR.
+
+![44.png](assets/44.png)
+
+![45.png](assets/45.png)
+
+#### Paso 7: actualizar `main` en ambos clones
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (fix/email-con-signo-mas)
+$ git switch main
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 43339e7 (origin/fix/email-con-signo-mas, fix/email-con-signo-mas) Permitir + en la parte local del email
+* 6d9a6c5 Agregar prueba que reproduce el bug del signo +
+* 3402a0b (HEAD -> main, tag: v1.0.0, origin/release/1.0, origin/main, origin/HEAD) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git pull --rebase
+remote: Enumerating objects: 27, done.
+remote: Counting objects: 100% (27/27), done.
+remote: Compressing objects: 100% (4/4), done.
+remote: Total 15 (delta 4), reused 14 (delta 4), pack-reused 0 (from 0)
+Unpacking objects: 100% (15/15), 1.70 KiB | 347.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   3402a0b..d387283  main       -> origin/main
+Updating 3402a0b..d387283
+Fast-forward
+ src/main/java/dev/magadiflo/tbd/EmailValidator.java     | 2 +-
+ src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git fetch --prune
+From https://github.com/magadiflo/trunk-based-development-practice
+ - [deleted]         (none)     -> origin/fix/email-con-signo-mas
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git branch -D fix/email-con-signo-mas
+Deleted branch fix/email-con-signo-mas (was 43339e7).
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+* 3402a0b (tag: v1.0.0, origin/release/1.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+- **El orden importa:** hay que cambiar a `main` **antes** del `pull`. Si lo haces estando en la rama del arreglo,
+  Git responde `Your configuration specifies to merge with the ref 'refs/heads/fix/email-con-signo-mas' from the
+  remote, but no such ref was fetched`. Es porque GitHub ya borró esa rama remota al fusionar.
+- `git branch -D`: se usa `-D` y no `-d`, porque tras un *Squash and merge* Git no ve la rama como fusionada.
+
+`[magadiflo]`
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git pull --rebase
+remote: Enumerating objects: 27, done.
+remote: Counting objects: 100% (27/27), done.
+remote: Compressing objects: 100% (4/4), done.
+remote: Total 15 (delta 4), reused 14 (delta 4), pack-reused 0 (from 0)
+Unpacking objects: 100% (15/15), 1.70 KiB | 248.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   3402a0b..d387283  main       -> origin/main
+Updating 3402a0b..d387283
+Fast-forward
+ src/main/java/dev/magadiflo/tbd/EmailValidator.java     | 2 +-
+ src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git fetch --prune
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+* 3402a0b (tag: v1.0.0, origin/release/1.0, release/1.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+El `pull` debe mostrar un *Fast-forward* con los dos archivos modificados. El `git lg` debe mostrar `main` un commit
+por encima de `3402a0b`, que es el *squash* (en nuestro caso su hash es `d387283`).
+`release/1.0` y `v1.0.0` siguen en `3402a0b`.
+
+### Llevar la corrección a la release: `cherry-pick`
+
+#### Paso 8: copiar el commit a la release y publicar `v1.0.1`
+
+`[magadiflo]`
+
+Primero ubicamos el commit del *squash* en `main`:
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg -3
+* d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+* 3402a0b (tag: v1.0.0, origin/release/1.0, release/1.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git lg -3`: muestra los últimos commits, uno por línea.
+> - `-3`: limita la salida a los 3 más recientes.
+
+El primero de la lista es el del *squash* (`Corregir: permitir + en el email (#6)`). Se **copia ese mismo commit** a la
+release:
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git switch release/1.0
+Switched to branch 'release/1.0'
+Your branch is up to date with 'origin/release/1.0'.
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git cherry-pick -x d387283
+[release/1.0 537830e] Corregir: permitir + en el email (#6)
+ Author: dev-partner-lab <145618228+dev-partner-lab@users.noreply.github.com>
+ Date: Tue Nov 24 17:24:29 2026 -0500
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git cherry-pick -x <hash>`: copia **un solo commit** de otra rama a la rama actual, como un commit nuevo.
+> - `git cherry-pick`: toma los cambios de un commit concreto (identificado por su hash) y los aplica encima de donde
+>   estás.
+> - `-x`: agrega al mensaje del commit nuevo la línea `(cherry picked from commit ...)`, para dejar **trazabilidad**
+>   de dónde vino.
+> - `d387283`: el hash del commit a copiar (el del *squash* en `main`).
+
+El commit copiado es **otro commit** (otro hash), aunque tenga el mismo contenido. Conserva el **autor original**
+(`dev-partner-lab`) y el *committer* es `magadiflo`, quien lo aplicó. Se ve con:
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git lg
+* 537830e (HEAD -> release/1.0) Corregir: permitir + en el email (#6)
+| * d387283 (origin/main, origin/HEAD, main) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0, origin/release/1.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit 
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git log -1 --format="autor=%an | committer=%cn" release/1.0
+autor=dev-partner-lab | committer=Martín Díaz
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git log --stat -1
+commit 537830e33f1edcbd38b298247b2ec75daba396b4 (HEAD -> release/1.0)
+Author: dev-partner-lab <145618228+dev-partner-lab@users.noreply.github.com>
+Date:   Tue Nov 24 17:24:29 2026 -0500
+
+    Corregir: permitir + en el email (#6)
+
+    (cherry picked from commit d3872834367482dd8d927e74ec1468644cef4f65)
+
+ src/main/java/dev/magadiflo/tbd/EmailValidator.java     | 2 +-
+ src/test/java/dev/magadiflo/tbd/EmailValidatorTest.java | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+````
+
+> **📖 Comandos de este bloque**
+>
+> `git log -1 --format="autor=%an | committer=%cn" release/1.0`: imprime un texto a medida sobre el último commit de
+> `release/1.0`.
+> - `-1`: solo el commit más reciente.
+> - `--format="..."`: define el texto de salida con marcadores: `%an` = nombre del autor, `%cn` = nombre de quien aplicó
+>   el commit (*committer*). (Otro marcador útil: `%B` = mensaje completo.)
+> - `release/1.0`: la rama o referencia cuyo último commit se muestra.
+
+**Antes de subir, verificamos la release.** Estamos en otra rama, con otra base, así que comprobamos que compile y
+pase las pruebas:
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ mvnw verify
+...
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  5.811 s
+[INFO] Finished at: 2026-11-24T18:01:59-05:00
+[INFO] ------------------------------------------------------------------------
+```
+
+> **Nuestro CI solo corre para `main`** (su sección `on:` filtra por esa rama), así que esta verificación local es
+> lo único que protege a la release. En un proyecto real también se agregaría `release/**` a los filtros del workflow,
+> y la release estaría protegida igual que `main`.
+
+Con la verificación en verde, se publica la corrección y se etiqueta la nueva versión:
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git push
+Enumerating objects: 27, done.
+Counting objects: 100% (27/27), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (8/8), done.
+Writing objects: 100% (15/15), 1.15 KiB | 394.00 KiB/s, done.
+Total 15 (delta 4), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (4/4), completed with 4 local objects.
+To https://github.com/magadiflo/trunk-based-development-practice.git
+   3402a0b..537830e  release/1.0 -> release/1.0 
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git tag -a v1.0.1 -m "Versión 1.0.1"
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git push origin v1.0.1
+Enumerating objects: 1, done.
+Counting objects: 100% (1/1), done.
+Writing objects: 100% (1/1), 176 bytes | 176.00 KiB/s, done.
+Total 1 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ * [new tag]         v1.0.1 -> v1.0.1
+
+M:\practice\magadiflo\trunk-based-development-practice (release/1.0 -> origin)
+$ git switch main
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 537830e (tag: v1.0.1, origin/release/1.0, release/1.0) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+Los comandos de `tag` y `push` de etiquetas ya se explicaron en el `Cambio #6`.
+
+#### Paso 9: sincronizar a `dev-partner-lab`
+
+`[dev-partner-lab]`
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git fetch --prune
+remote: Enumerating objects: 28, done.
+remote: Counting objects: 100% (28/28), done.
+remote: Compressing objects: 100% (5/5), done.
+remote: Total 16 (delta 4), reused 16 (delta 4), pack-reused 0 (from 0)
+Unpacking objects: 100% (16/16), 1.28 KiB | 163.00 KiB/s, done.
+From https://github.com/magadiflo/trunk-based-development-practice
+   3402a0b..537830e  release/1.0 -> origin/release/1.0
+ * [new tag]         v1.0.1      -> v1.0.1
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 537830e (tag: v1.0.1, origin/release/1.0) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+Como `release/1.0` todavía existe en el remoto, el `fetch` descarga también el tag `v1.0.1`.
+
+> **Por eso se sincroniza antes de cerrar la release.** `git fetch` solo trae automáticamente los tags que cuelgan de
+> commits alcanzables desde las ramas que descarga, y el tag `v1.0.1` cuelga de un commit que solo existe en
+> `release/1.0`. Si `dev-partner-lab` hiciera el `fetch` **después** de que la rama se borrara, ese commit ya no
+> sería alcanzable y el tag no se descargaría. En ese caso se usaría `git fetch --tags`, que descarga **todos** los
+> tags del remoto.
+
+### Resultado
+
+`[magadiflo]`
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 537830e (tag: v1.0.1, origin/release/1.0, release/1.0) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+```bash
+* <hash-del-cherry-pick> (tag: v1.0.1, origin/release/1.0, release/1.0) Corregir: permitir + en el email (#6)
+| * <hash-del-squash> (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+...
+```
+
+**¿Es una bifurcación en TBD?** La línea lateral es la **release** (con su `cherry-pick` y su tag), no `main`. `main`
+sigue **lineal**, sin commits de merge. El alias `git lg` usa `--all`, que dibuja todas las ramas y tags. Para ver
+solo `main`:
+
+```bash
+git log --oneline --graph --decorate main
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git log --oneline --graph --decorate main`: historial en forma de grafo, limitado a lo que se alcanza desde `main`.
+> - `--graph`: dibuja las líneas del historial.
+> - `--decorate`: muestra a qué rama o tag apunta cada commit.
+> - `main`: en vez de `--all`, solo se muestra el historial de esa rama.
+
+Compara con el `hotfix` de GitFlow:
+
+|                                   | GitFlow                           | TBD                                       |
+|-----------------------------------|-----------------------------------|-------------------------------------------|
+| Rama aparte para la corrección    | `hotfix-1.1.0`                    | `fix/*` normal, desde `main`              |
+| PR necesarios                     | 2 (a `main` y a `develop`)        | 1 (a `main`) + `cherry-pick` a la release |
+| Riesgo de olvidar propagar el fix | Sí (hay que fusionar a `develop`) | No (el fix nace en `main`)                |
+
+> **Nota sobre variantes:** las fuentes no son 100% uniformes. La referencia clásica del modelo lleva las correcciones
+> del trunk a la release con *cherry-pick* (lo practicado aquí) y la release **no se fusiona de vuelta**; otras guías
+> mencionan fusionar de vuelta las correcciones hechas en la release.
+>
+> **Alternativa: *fix forward*.** Cuando se despliega `main` de forma continua y en minutos, con feature flags, se
+> suele arreglar en `main` y desplegar desde ahí, sin release que parchear. Es habitual en productos web con
+> despliegue diario. Donde producción corre una versión certificada, como en entornos regulados, se prefiere parchear
+> la release con `cherry-pick`. Lo importante en ambos casos es que **el arreglo llegue a `main` rápido**.
+
+### Cierre de la release
+
+`release/1.0` es una rama de **vida corta**: se borra cuando ya no se necesita, es decir, cuando la siguiente release
+(`release/1.1`) esté estable en producción. Los tags `v1.0.0` y `v1.0.1` **permanecen**. Como en la práctica no vamos
+a crear `release/1.1`, **simulamos ese momento** y cerramos la release:
+
+`[magadiflo]`
+
+```bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 537830e (tag: v1.0.1, origin/release/1.0, release/1.0) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git push origin --delete release/1.0
+To https://github.com/magadiflo/trunk-based-development-practice.git
+ - [deleted]         release/1.0
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git branch -D release/1.0
+Deleted branch release/1.0 (was 537830e).
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git tag
+v1.0.0
+v1.0.1
+
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 537830e (tag: v1.0.1) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+> **📖 Comandos de este bloque**
+>
+> `git push origin --delete release/1.0`: borra la rama **en el remoto** (GitHub).
+> - `git push origin`: ya explicado.
+> - `--delete`: en vez de subir, **elimina** la rama indicada del remoto.
+> - `release/1.0`: la rama a eliminar. (Esto no borra tu copia local; para eso está `git branch -D`.)
+>
+> `git tag` (sin argumentos): **lista** las etiquetas existentes. Los tags permanecen aunque se borre la rama.
+
+Se usa `-D` en `git branch`: el `cherry-pick` creó un commit **distinto** al de `main`, así que Git no considera la
+rama como fusionada.
+
+`[dev-partner-lab]`
+
+```bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 537830e (tag: v1.0.1, origin/release/1.0) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git fetch --prune
+From https://github.com/magadiflo/trunk-based-development-practice
+ - [deleted]         (none)     -> origin/release/1.0
+
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 537830e (tag: v1.0.1) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+```
+
+Esto elimina la referencia `origin/release/1.0`, que ya no existe en el remoto. El tag `v1.0.1` no se pierde:
+`dev-partner-lab` ya lo descargó en el paso 9.
+
+**Resultado final:** la rama `release/1.0` desapareció, pero el commit del `cherry-pick` sigue visible porque el tag
+`v1.0.1` lo mantiene vivo. Los dos clones deberían mostrar lo mismo:
+
+```bash
+* <hash-del-cherry-pick> (tag: v1.0.1) Corregir: permitir + en el email (#6)
+| * <hash-del-squash> (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+...
+```
+
+#### Resultado final
+
+`[magadiflo]`
+
+````bash
+M:\practice\magadiflo\trunk-based-development-practice (main -> origin)
+$ git lg
+* 537830e (tag: v1.0.1) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit 
+````
+
+`[dev-partner-lab]`
+
+````bash
+magadiflo@SysEngJava UCRT64 /m/practice/dev-partner-lab/trunk-based-development-practice (main)
+$ git lg
+* 537830e (tag: v1.0.1) Corregir: permitir + en el email (#6)
+| * d387283 (HEAD -> main, origin/main, origin/HEAD) Corregir: permitir + en el email (#6)
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)
+* 3c260c4 Nuevo checkout detrás de feature flag (#3)
+* c80e8ef Validar email al registrar usuario (#1)
+* 7af7e27 Configurar timeout de integración
+* 0d0d372 Configurar TTL de caché
+* 2c7b7de Agregar endpoint /api/saludo
+* 79389aa Initial commit
+````
+
+### ¿Cómo seguirá el historial a partir de aquí?
+
+Ya terminamos con un historial de este tipo: una línea recta (`main`) y una **aleta** corta, como la de un pez, que
+cuelga de ella. Veamos cómo seguirá creciendo.
+
+- **Las nuevas funcionalidades y correcciones siguen entrando por `main`.** Cada PR fusionado con *Squash and merge*
+  agrega **un commit nuevo encima de `main`**. La línea sigue recta, sin commits de merge.
+- **La aleta es el commit `537830e`**, la copia de la corrección que viaja a la release (el `cherry-pick`). Seguirá
+  ahí mientras exista el tag `v1.0.1`, porque ese tag lo mantiene vivo. Los tags son el registro permanente de lo que
+  se publicó, así que esa aleta se queda en el historial aunque la rama `release/1.0` ya se haya borrado.
+- **¿Cuándo se forma una aleta?** Solo cuando a una release se le agrega un commit que no está en `main`, es decir,
+  cuando se lleva una corrección con `cherry-pick`. Cada corrección nueva sobre la misma release (por ejemplo,
+  `v1.0.2`) alarga su aleta. **Crear una release no forma una aleta**: la rama nace en el mismo commit que `main`,
+  y mientras no reciba commits propios, se ve solo como una etiqueta sobre ese punto.
+- **¿Dónde nace la siguiente release?** Siempre desde `main`, en el momento en que se corta, ya con todo lo que se
+  haya integrado hasta entonces. No sale de la aleta de la anterior: queda "al nivel de `main`". El número depende del
+  esquema de versionado (con *SemVer*, `1.1.0` si agrega funcionalidad compatible y `2.0.0` si rompe compatibilidad).
+  En este ejemplo usaríamos `release/1.1`.
+- **¿Dónde terminan las releases?** Son de **vida corta**: la rama se borra cuando la siguiente release está estable
+  en producción. Los tags permanecen.
+
+Un esquema conceptual de cómo se vería más adelante (no es una salida real):
+
+```text
+* (HEAD -> main, origin/main, release/1.1) Nueva funcionalidad C    <- release/1.1 nace aquí, sin aleta
+* Nueva funcionalidad B
+* Nueva funcionalidad A
+* d387283 Corregir: permitir + en el email (#6)
+| * 537830e (tag: v1.0.1) Corregir: permitir + en el email (#6)     <- aleta de la release 1.0
+|/
+* 3402a0b (tag: v1.0.0) Configurar reintentos de integración (#4)   <- aquí se cortó release/1.0
+...
+```
+
+**Regla práctica:** `main` es **una sola línea**, y cada release es, como máximo, **una aleta corta** con sus tags. Si
+quieres ver solo la línea recta, usa `git log --oneline --graph --decorate main`.
