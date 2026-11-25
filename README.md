@@ -3563,3 +3563,75 @@ Un esquema conceptual de cómo se vería más adelante (no es una salida real):
 
 **Regla práctica:** `main` es **una sola línea**, y cada release es, como máximo, **una aleta corta** con sus tags. Si
 quieres ver solo la línea recta, usa `git log --oneline --graph --decorate main`.
+
+## Problemas frecuentes al practicar con GitHub
+
+| Síntoma                                                                                                            | Causa probable                                                                                 | Solución                                                                                                                                                     |
+|--------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Los pushes de dev-partner-lab salen como **magadiflo** (no hay error, pero en GitHub aparece la cuenta equivocada) | GCM reutilizó la cuenta guardada porque el clon no indica usuario                              | `git config --local credential.https://github.com.username "dev-partner-lab"` en ese clon; revisa `git credential-manager github list` y vuelve a autenticar |
+| `remote: Permission to magadiflo/... denied to <usuario>` o error 403 al hacer push                                | La cuenta con la que se autenticó no tiene acceso (invitación sin aceptar o cuenta equivocada) | Acepta la invitación; revisa qué usuario envía Git/GCM **(GitHub, no verificado)**                                                                           |
+| El navegador de GCM abre la sesión de la otra cuenta                                                               | El navegador predeterminado tiene abierta la sesión de magadiflo                               | Usa ventana de incógnito, código de dispositivo o un token clásico con permiso `repo`                                                                        |
+| Los commits de dev-partner-lab aparecen como magadiflo                                                             | El clon usa la identidad global en vez de la local                                             | `git config --show-origin user.name` en ese clon; configura `user.name/email` con `--local`                                                                  |
+| Los commits salen sin avatar ni usuario                                                                            | El `user.email` no pertenece a la cuenta                                                       | Usa el correo de la cuenta o su correo noreply (Settings > Emails)                                                                                           |
+| La CI falla con `./mvnw: Permission denied`                                                                        | `mvnw` se subió sin permiso de ejecución                                                       | `git update-index --chmod=+x mvnw` y nuevo commit                                                                                                            |
+| No aparece el check `build` al crear el ruleset                                                                    | El workflow aún no se ha ejecutado                                                             | Haz un push o PR para que corra y vuelve a buscarlo                                                                                                          |
+| El botón de merge está bloqueado                                                                                   | Falta la aprobación o el check `build` no pasó                                                 | Revisa el panel de requisitos del PR                                                                                                                         |
+| No puedes aprobar tu propio PR                                                                                     | GitHub no lo permite                                                                           | Aprueba con la otra cuenta                                                                                                                                   |
+| `git branch -d` dice *not fully merged*                                                                            | Es normal tras *Squash and merge* o `cherry-pick`                                              | Usa `git branch -D` (si ya está integrado)                                                                                                                   |
+| `git push` rechazado tras un `rebase`                                                                              | Se reescribió la historia de la rama                                                           | `git push --force-with-lease` (solo en tu rama de vida corta)                                                                                                |
+| `git push` a `main` rechazado con `GH013`                                                                          | El ruleset está haciendo su trabajo                                                            | Usa una rama y un PR                                                                                                                                         |
+
+## Errores comunes (anti-patrones)
+
+| Error                                    | Por qué rompe TBD                                                                                                            |
+|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| Ramas `feature` que viven semanas        | Es GitFlow disfrazado. La referencia del modelo indica que una rama corta dura uno o dos días y debe borrarse al integrarse. |
+| Varias personas en la misma rama "corta" | Se vuelve una mini-release branch con desarrollo activo.                                                                     |
+| PR gigantes                              | No se revisan rápido y se acumulan conflictos.                                                                               |
+| Integrar sin pruebas ni CI               | `main` se rompe y todos pierden tiempo.                                                                                      |
+| No usar feature flags                    | Obliga a esperar a terminar todo para integrar, es decir, ramas largas.                                                      |
+| Arreglar solo en la release branch       | El bug reaparece en la siguiente versión.                                                                                    |
+| Flags que nunca se limpian               | Código muerto y combinaciones imposibles de probar.                                                                          |
+
+## Equivalencias GitFlow → Trunk Based Development
+
+| En GitFlow hacías...                       | En TBD haces...                                         |
+|--------------------------------------------|---------------------------------------------------------|
+| Crear `feature/*` desde `develop`          | Rama corta desde `main` (o commit directo)              |
+| Mergear `feature` a `develop`              | PR + *Squash and merge* a `main` en menos de 1-2 días   |
+| Tener `develop` con "lo que viene"         | `main` siempre lista; lo incompleto va apagado con flag |
+| Rama `release-*` larga con ajustes finales | Tag sobre `main`, o `release/*` corta con cherry-pick   |
+| Rama `hotfix-*` + 2 PR (main y develop)    | Fix en `main` + cherry-pick a la release si hace falta  |
+| Esperar a la "fecha de release"            | Desplegar desde `main` con frecuencia                   |
+
+## Preguntas típicas de entrevista
+
+- **¿Qué es Trunk Based Development?** Estrategia donde todos integran en una sola rama (`main`) con cambios pequeño
+  y frecuentes, usando ramas de vida corta y feature flags.
+- **¿Diferencia principal con GitFlow?** TBD no tiene `develop` ni ramas largas; la vida de las ramas se mide en
+  horas, no semanas.
+- **¿Cómo manejas código incompleto?** Se integra apagado con un *feature flag*.
+- **¿Qué necesita un equipo para adoptarlo?** CI rápida, pruebas automatizadas, revisiones ágiles y feature flags.
+- **¿Cómo se hace un hotfix?** La corrección se hace **primero en `main`** y luego se lleva a la release:
+    1. Desde `main`, actualizado, se crea una rama `fix/...`.
+    2. En esa rama se escribe **primero la prueba que reproduce el bug** (falla) y luego **la corrección** (la prueba
+       pasa). Suelen ser dos commits.
+    3. Se abre un Pull Request hacia `main`. Con la aprobación y el CI en verde se fusiona con *Squash and merge*, y los
+       dos commits quedan como **uno solo** en `main`.
+    4. Se actualiza el `main` local con `git pull --rebase`. Ahora `main` tiene la corrección, pero la release todavía
+       no.
+    5. Parado en la rama de la release, se hace `git cherry-pick -x` del commit del *squash*. Eso **copia** la
+       corrección a la release como un commit nuevo (otro hash, mismo contenido). Se verifica con `./mvnw verify` y se
+       sube la rama.
+    6. Se crea el tag de la nueva versión (`v1.0.1`) **sobre ese commit de la release** y se sube el tag.
+    7. Producción se actualiza desde ese tag, con lo mínimo que cambió respecto a la versión anterior.
+
+  **Cómo queda el historial:** `main` sigue siendo una línea recta, con la corrección como un commit más. La release
+  tiene una pequeña aleta con su copia de la corrección y el tag nuevo.
+
+- **¿Qué haces si tu PR entra en conflicto?** `rebase` sobre `main`, resuelvo en local, pruebo y subo con
+  `--force-with-lease`.
+- **¿Cómo proteges `main`?** Ruleset/branch protection: PR obligatorio, aprobaciones, checks de CI requeridos,
+  historial lineal y sin force push.
+- **¿Cuándo NO usarías TBD?** Cuando se publican versiones por calendario con revisiones largas o se mantienen varias
+  versiones en paralelo durante años.
